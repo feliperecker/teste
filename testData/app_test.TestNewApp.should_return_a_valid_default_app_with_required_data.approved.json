@@ -1,0 +1,24 @@
+{
+  "Acl": {
+    "RolesList": null
+  },
+  "Options": {
+    "GormOptions": null
+  },
+  "Plugins": {},
+  "Models": {},
+  "Events": {
+    "EnableLock": true,
+    "ChannelSize": 100,
+    "ConsumerNum": 3,
+    "MatchMode": 0
+  },
+  "Configuration": {},
+  "DefaultDB": "",
+  "DBs": {},
+  "Logger": {},
+  "Resources": {},
+  "RolesList": null,
+  "Theme": "",
+  "Layout": ""
+}

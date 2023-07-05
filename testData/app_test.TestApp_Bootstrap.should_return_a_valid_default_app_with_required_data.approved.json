@@ -1,0 +1,48 @@
+{
+  "Acl": {
+    "RolesList": {
+      "administrator": {
+        "name": "administrator",
+        "permissions": [],
+        "canAddInUsers": true,
+        "isSystemRole": true
+      },
+      "authenticated": {
+        "name": "authenticated",
+        "permissions": [],
+        "canAddInUsers": false,
+        "isSystemRole": true
+      },
+      "owner": {
+        "name": "owner",
+        "permissions": [],
+        "canAddInUsers": false,
+        "isSystemRole": true
+      },
+      "unAuthenticated": {
+        "name": "unAuthenticated",
+        "permissions": [],
+        "canAddInUsers": false,
+        "isSystemRole": true
+      }
+    }
+  },
+  "Options": {
+    "GormOptions": null
+  },
+  "Plugins": {},
+  "Models": {},
+  "Events": {
+    "EnableLock": true,
+    "ChannelSize": 100,
+    "ConsumerNum": 3,
+    "MatchMode": 0
+  },
+  "Configuration": {},
+  "DefaultDB": "default",
+  "Logger": {},
+  "Resources": {},
+  "RolesList": null,
+  "Theme": "",
+  "Layout": ""
+}
