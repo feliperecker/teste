@@ -1,10 +1,9 @@
-package minifier
+package core
 
 import (
 	"bytes"
 	"regexp"
 
-	"github.com/go-catupiry/catu"
 	"github.com/labstack/echo/v4"
 	"github.com/tdewolff/minify/v2"
 	"github.com/tdewolff/minify/v2/css"
@@ -17,15 +16,20 @@ var m *minify.M
 
 func init() {
 	m = minify.New()
-	m.AddFunc("text/html", html.Minify)
 	m.AddFunc("text/css", css.Minify)
+	m.Add("text/html", &html.Minifier{
+		KeepDocumentTags: true,
+	})
 	m.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), js.Minify)
 	m.AddFuncRegexp(regexp.MustCompile("[/+]json$"), json.Minify)
 }
 
-func MinifiHTML(templateName string, data interface{}, c *catu.RequestContext) (string, error) {
+func MinifiHTML(templateName string, data interface{}, c echo.Context) (string, error) {
 	html := new(bytes.Buffer)
-	err := c.App.RenderTemplate(html, templateName, data)
+
+	app := c.Get("app").(App)
+
+	err := app.RenderTemplate(html, GetTheme(c), templateName, data)
 	if err != nil {
 		return "", err
 	}

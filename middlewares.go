@@ -2,27 +2,29 @@ package core
 
 import (
 	"net/http"
-	"strings"
 
+	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // BindMiddlewares - Bind middlewares in order
 func BindMiddlewares(app App, p Plugin) {
-	logrus.Debug("catu.BindMiddlewares " + p.GetName())
+	app.GetLogger().Debug("BindMiddlewares ", zap.String("plugin", p.GetName()))
 
-	goEnv := app.GetConfiguration().Get("GO_ENV")
+	goEnv := app.GetConfiguration().Get(ENV_VARIABLE_NAME)
 
 	router := app.GetRouter()
 	router.Pre(middleware.RemoveTrailingSlashWithConfig(middleware.TrailingSlashConfig{
 		RedirectCode: http.StatusMovedPermanently,
 	}))
 
+	router.Pre(AcceptResolverMiddleware(app))
+
 	router.Use(middleware.Gzip())
 	router.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowCredentials: app.GetConfiguration().GetBoolF("CORS_ALLOW_CREDENTIALS", true),
-		MaxAge:           app.GetConfiguration().GetIntF("CORS_MAX_AGE", 18000), // secconds
+		AllowCredentials: app.GetConfiguration().GetBoolF(CORS_ALLOW_CREDENTIALS, true),
+		MaxAge:           app.GetConfiguration().GetIntF(CORS_MAX_AGE, 18000), // secconds
 	}))
 
 	if goEnv == "dev" {
@@ -30,6 +32,13 @@ func BindMiddlewares(app App, p Plugin) {
 	}
 }
 
-func isPublicRoute(url string) bool {
-	return strings.HasPrefix(url, "/health") || strings.HasPrefix(url, "/public")
+func AcceptResolverMiddleware(app App) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			acceptType := NegotiateContentType(c.Request(), app.GetContentTypes(), app.GetDefaultContentType())
+			CtxSetAccept(c, acceptType)
+
+			return next(c)
+		}
+	}
 }

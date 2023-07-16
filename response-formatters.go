@@ -1,7 +1,6 @@
 package core
 
 import (
-	"github.com/go-bolo/core/minifier"
 	"github.com/labstack/echo/v4"
 )
 
@@ -18,7 +17,7 @@ func DefaultJSONFormatter(app App, c echo.Context, r *Route, resp Response) erro
 func DefaultHTMLFormatter(app App, c echo.Context, r *Route, resp Response) error {
 	template := app.GetTemplateCtx(c, r)
 
-	return minifier.MinifiAndRender(resp.GetStatusCode(), template, &TemplateCTX{
+	return MinifiAndRender(resp.GetStatusCode(), template, &TemplateCTX{
 		Ctx:  c,
 		Data: resp.GetData(),
 	}, c)

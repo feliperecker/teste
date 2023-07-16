@@ -5,13 +5,14 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"net/http"
 	"os"
+	"path"
 	"time"
 
 	"github.com/go-bolo/core/configuration"
-	"github.com/go-catupiry/catu/http_client"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"github.com/go-bolo/core/helpers"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/gookit/event"
 	"github.com/labstack/echo/v4"
@@ -25,6 +26,8 @@ import (
 )
 
 type App interface {
+	GetEnv() string
+
 	AddPlugin(pluginName string, p Plugin) error
 	GetPlugin(pluginName string) (p Plugin)
 	HasPlugin(pluginName string) (has bool)
@@ -38,8 +41,8 @@ type App interface {
 	GetDB() *gorm.DB
 	GetDBByName(dbName string) *gorm.DB
 	SetDB(dbName string, db *gorm.DB) error
-	SetModel(name string, f interface{})
-	GetModel(name string) interface{}
+	SetModel(name string, model Model) error
+	GetModel(name string) Model
 
 	// Logger:
 	GetLogger() *zap.Logger
@@ -52,6 +55,9 @@ type App interface {
 	SetResource(name string, httpController Controller, routerGroup *echo.Group) error
 	BindRoute(routeName string, r *Route) echo.HandlerFunc
 
+	GetDefaultContentType() string
+	GetContentTypes() []string
+	SetContentTypes(contentTypes []string) error
 	GetResponseFormatter(accept string) responseFormatter
 	SetResponseFormatter(accept string, rf responseFormatter) error
 
@@ -82,6 +88,9 @@ type App interface {
 }
 
 type DefaultAppOptions struct {
+	DefaultContentType string
+	// Avaiblable content types for negotiation:
+	ContentTypes []string
 	// Gorm configurations / options
 	GormOptions gorm.Option
 }
@@ -91,6 +100,10 @@ func NewApp(opts *DefaultAppOptions) App {
 	defer logger.Sync()
 
 	cfg := configuration.NewCfg()
+
+	if len(opts.ContentTypes) == 0 {
+		opts.ContentTypes = []string{"text/html", "application/json"}
+	}
 
 	app := &DefaultApp{
 		Acl:                NewAcl(),
@@ -106,9 +119,21 @@ func NewApp(opts *DefaultAppOptions) App {
 		ResponseFormatters: make(map[string]responseFormatter),
 		router:             echo.New(),
 		Routes:             make(map[string]*Route),
-		Theme:              cfg.GetF("THEME", "site"),
+		Theme:              cfg.GetF(THEME, "site"),
 		Layout:             "layouts/default",
+		templateFunctions:  make(template.FuncMap),
 	}
+
+	app.router.GET("/health", HealthCheckHandler)
+	app.router.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			CtxSetDefaultValues(c, app)
+			return nil
+		}
+	})
+	app.router.Binder = &CustomBinder{}
+	app.router.HTTPErrorHandler = CustomHTTPErrorHandler
+	app.router.Validator = &helpers.CustomValidator{Validator: validator.New()}
 
 	return app
 }
@@ -130,7 +155,7 @@ type DefaultApp struct {
 	router             *echo.Echo
 	Routes             map[string]*Route
 	Resources          map[string]*Resource
-	ResponseFormatters map[string]responseFormatter
+	ResponseFormatters map[string]responseFormatter `json:"-"`
 
 	routerGroups map[string]*echo.Group
 
@@ -141,6 +166,10 @@ type DefaultApp struct {
 	Layout            string
 	templates         *template.Template
 	templateFunctions template.FuncMap
+}
+
+func (app *DefaultApp) GetEnv() string {
+	return os.Getenv(ENV_VARIABLE_NAME)
 }
 
 func (app *DefaultApp) GetLogger() *zap.Logger {
@@ -177,17 +206,29 @@ func (app *DefaultApp) SetResource(name string, httpController Controller, route
 func (app *DefaultApp) BindRoute(routeName string, r *Route) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		res, err := r.Action(c)
+		if err != nil {
+			return err
+		}
 
-		// TODO! formatter
-		log.Println("TODO!>>>>>>", res, err)
-
-		availableTypes := []string{"application/json", "text/plain", "text/html", "text/*"}
-		ctype := NegotiateContentType(c.Request(), availableTypes, "application/json")
-
-		log.Println("ctype>>>>>>>>>>>>>>>>>>>>>", ctype)
-
-		return app.GetResponseFormatter(ctype)(app, c, r, res)
+		return app.GetResponseFormatter(CtxGetAccept(c))(app, c, r, res)
 	}
+}
+
+func (app *DefaultApp) GetDefaultContentType() string {
+	if app.Options.DefaultContentType != "" {
+		return app.Options.DefaultContentType
+	}
+
+	return "application/json"
+}
+
+func (app *DefaultApp) GetContentTypes() []string {
+	return app.Options.ContentTypes
+}
+
+func (app *DefaultApp) SetContentTypes(contentTypes []string) error {
+	app.Options.ContentTypes = contentTypes
+	return nil
 }
 
 func (app *DefaultApp) GetResponseFormatter(accept string) responseFormatter {
@@ -205,7 +246,13 @@ func (app *DefaultApp) SetRoute(routeName string, route *Route) error {
 }
 
 func (app *DefaultApp) StartHTTPServer() error {
-	panic("not implemented") // TODO: Implement
+	port := app.Configuration.Get(PORT)
+	if port == "" {
+		port = "8080"
+	}
+
+	app.GetLogger().Info("Server listening on port " + port)
+	return http.ListenAndServe(":"+port, app.GetRouter())
 }
 
 func (app *DefaultApp) GetTheme() string {
@@ -235,15 +282,31 @@ func (app *DefaultApp) GetTemplates() *template.Template {
 }
 
 func (app *DefaultApp) HasTemplate(name string) bool {
-	if app.templates.Lookup(name) == nil {
-		return false
-
-	}
-	return true
+	return app.templates.Lookup(name) == nil
 }
 
 func (app *DefaultApp) LoadTemplates() error {
-	panic("not implemented") // TODO: Implement
+	l := app.GetLogger().With(zap.String("func", "LoadTemplates"))
+
+	rootDir := app.Configuration.GetF(TEMPLATE_FOLDER, "./themes")
+	disableTemplating := app.Configuration.GetBool(TEMPLATE_DISABLE)
+
+	if disableTemplating {
+		return nil
+	}
+
+	tpls, err := findAndParseTemplates(rootDir, app.templateFunctions)
+	if err != nil {
+		l.Error("error on parse templates", zap.Error(err), zap.String("rootDir", rootDir))
+		app.templates = tpls
+		return err
+	}
+
+	app.templates = tpls
+
+	l.Debug("templates loaded", zap.Int("count", len(app.templates.Templates())))
+
+	return nil
 }
 
 func (app *DefaultApp) SetTemplateFunction(name string, f interface{}) {
@@ -251,7 +314,7 @@ func (app *DefaultApp) SetTemplateFunction(name string, f interface{}) {
 }
 
 func (app *DefaultApp) RenderTemplate(wr io.Writer, theme string, name string, data interface{}) error {
-	panic("not implemented") // TODO: Implement
+	return app.GetTemplates().ExecuteTemplate(wr, path.Join(theme, name), data)
 }
 
 func (app *DefaultApp) GetTemplateCtx(c echo.Context, r *Route) string {
@@ -313,26 +376,27 @@ func (app *DefaultApp) SetDB(dbName string, db *gorm.DB) error {
 }
 
 func (app *DefaultApp) Migrate() error {
-	panic("not implemented") // TODO: Implement
+	err, _ := app.Events.Fire("migrate", event.M{"app": app})
+	if err != nil {
+		return fmt.Errorf("app.Migrate migrate error: %w", err)
+	}
+
+	return nil
 }
 
-// DB:
 func (app *DefaultApp) InitDatabase(name string, engine string, isDefault bool) error {
 	var err error
 	var db *gorm.DB
 
-	dbURI := app.Configuration.GetF("DB_URI", "test.sqlite?charset=utf8mb4")
-	dbSlowThreshold := app.Configuration.GetInt64F("DB_SLOW_THRESHOLD", 400)
-	logQuery := app.Configuration.GetF("LOG_QUERY", "")
+	dbURI := app.Configuration.GetF(DB_URI, "test.sqlite?charset=utf8mb4")
+	dbSlowThreshold := app.Configuration.GetInt64F(DB_SLOW_THRESHOLD, 400)
+	logQuery := app.Configuration.GetF(LOG_QUERY, "")
 
-	logrus.WithFields(logrus.Fields{
-		"dbURI":           dbURI,
-		"dbSlowThreshold": dbSlowThreshold,
-		"logQuery":        logQuery,
-	}).Debug("catu.App.InitDatabase starting db with configs")
+	l := app.GetLogger().With(zap.String("on", "InitDatabase"))
+	l.Debug("starting db with configs", zap.String("dbURI", dbURI), zap.Int64("dbSlowThreshold", dbSlowThreshold), zap.String("logQuery", logQuery))
 
 	if dbURI == "" {
-		return errors.New("catu.App.InitDatabase DB_URI environment variable is required")
+		return ErrDbUrlIsRequired
 	}
 
 	dsn := dbURI + "?charset=utf8mb4&parseTime=True&loc=Local"
@@ -366,28 +430,25 @@ func (app *DefaultApp) InitDatabase(name string, engine string, isDefault bool) 
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(dsn), gormCFG)
 	case "sqlite":
-		log.Println(">>>>>>>>>>>>>>>>>>>>>>>")
 		db, err = gorm.Open(sqlite.Open(dbURI), gormCFG)
-		log.Println(">>>>>>>>>>>>>>>>>>>>>>><<<<<<<<<")
 	default:
-		return errors.New("catu.App.InitDatabase invalid database engine. Options available: mysql or sqlite")
+		return ErrDbInvalidDatabaseEngine
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "catu.App.InitDatabase error on database connection")
+		return fmt.Errorf("InitDatabase error on database connectio: %w", err)
 	}
 
-	app.SetDB(app.DefaultDB, db)
+	return app.SetDB(app.DefaultDB, db)
+}
 
+func (app *DefaultApp) SetModel(name string, m Model) error {
+	app.Models[name] = m
 	return nil
 }
 
-func (app *DefaultApp) SetModel(name string, f interface{}) {
-	panic("not implemented") // TODO: Implement
-}
-
-func (app *DefaultApp) GetModel(name string) interface{} {
-	panic("not implemented") // TODO: Implement
+func (app *DefaultApp) GetModel(name string) Model {
+	return app.Models[name]
 }
 
 func (app *DefaultApp) Bootstrap() error {
@@ -412,21 +473,34 @@ func (app *DefaultApp) Bootstrap() error {
 
 	err = app.InitDatabase(app.DefaultDB, configuration.GetEnv("DB_ENGINE", "sqlite"), true)
 	if err != nil {
+		return fmt.Errorf("DefaultApp.Bootstrap: Error on init database connection: %w", err)
+	}
+
+	err = SetDefaultResponseFormatters(app)
+	if err != nil {
 		return err
 	}
 
-	SetDefaultResponseFormatters(app)
-
-	http_client.Init()
+	HttpClientInit()
 
 	app.Events.MustTrigger("bindMiddlewares", event.M{"app": app})
 	app.Events.MustTrigger("bindRoutes", event.M{"app": app})
 	app.Events.MustTrigger("setResponseFormats", event.M{"app": app})
+
+	err = SetCoreTemplateFunctions(app)
+	if err != nil {
+		return err
+	}
 	app.Events.MustTrigger("setTemplateFunctions", event.M{"app": app})
 
-	// app.router.Renderer = &TemplateRenderer{
-	// 	templates: app.GetTemplates(),
-	// }
+	err = app.LoadTemplates()
+	if err != nil {
+		return fmt.Errorf("DefaultApp.Bootstrap Error on LoadTemplates: %w", err)
+	}
+
+	app.router.Renderer = &TemplateRenderer{
+		templates: app.GetTemplates(),
+	}
 
 	for routeName, r := range app.Routes {
 		l.Debug("DefaultApp.Bootstrap: registering route", zap.String("route", routeName))
@@ -448,5 +522,11 @@ func (app *DefaultApp) Bootstrap() error {
 }
 
 func (app *DefaultApp) Close() error {
-	panic("not implemented") // TODO: Implement
+	err, _ := app.Events.Fire("close", event.M{"app": app})
+	if err != nil {
+		app.GetLogger().Debug("Close error", zap.Error(err))
+		return err
+	}
+
+	return nil
 }

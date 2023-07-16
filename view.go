@@ -7,19 +7,53 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	"github.com/go-catupiry/catu/pagination"
 	"github.com/labstack/echo/v4"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
+type Metadata interface {
+	Get(key string) string
+	Set(key string, value string)
+	Remove(key string)
+	GetAll() map[string]string
+}
+
+func NewMetadata() *MetadataDefault {
+	return &MetadataDefault{
+		Data: make(map[string]string),
+	}
+}
+
+type MetadataDefault struct {
+	Data map[string]string
+}
+
+func (m *MetadataDefault) Get(key string) string {
+	return m.Data[key]
+}
+
+func (m *MetadataDefault) Set(key string, value string) {
+	m.Data[key] = value
+}
+
+func (m *MetadataDefault) Remove(key string) {
+	delete(m.Data, key)
+}
+
+func (m *MetadataDefault) GetAll() map[string]string {
+	return m.Data
+}
+
 type TemplateCTX struct {
-	Ctx  echo.Context
-	Data any
+	Ctx     echo.Context
+	Data    any
+	Content template.HTML
 }
 
 type TemplateRenderer struct {
@@ -27,6 +61,9 @@ type TemplateRenderer struct {
 }
 
 func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	app := c.Get("app").(App)
+	l := app.GetLogger()
+
 	switch v := data.(type) {
 	case int:
 		// v is an int here, so e.g. v + 1 is possible.
@@ -39,42 +76,39 @@ func (t *TemplateRenderer) Render(w io.Writer, name string, data interface{}, c 
 		fmt.Printf("String: %v", v)
 	default:
 		htmlContext := data.(*TemplateCTX)
-		// htmlContext.EchoContext = c
+		theme := GetTheme(c)
+		layout := GetLayout(c)
 
-		logrus.WithFields(logrus.Fields{
-			"name":          name,
-			"htmlContext":   htmlContext,
-			"len templates": len(t.templates.Templates()),
-		}).Debug("Render")
+		if app.GetEnv() == "development" {
+			l.Debug("Render", zap.Any("htmlContext", htmlContext), zap.String("name", name))
+		}
 
-		return nil
-		// var contentBuffer bytes.Buffer
-		// err := ctx.RenderTemplate(&contentBuffer, name, htmlContext)
-		// if err != nil {
-		// 	logrus.WithFields(logrus.Fields{
-		// 		"error": fmt.Sprintf("%+v\n", errors.Wrap(err, "catu.theme.Render error on render template")),
-		// 		"name":  name,
-		// 	}).Error("catu.theme.Render error on execute template")
-		// 	return err
-		// }
+		var contentBuffer bytes.Buffer
+		err := app.RenderTemplate(&contentBuffer, theme, name, htmlContext)
+		if err != nil {
+			if strings.Contains(err.Error(), "is undefined") {
+				l.Error("Render error: template not found", zap.Error(err), zap.String("name", name), zap.String("theme", theme))
+				return c.String(http.StatusNotImplemented, "Template "+name+" not found: theme="+theme+" layout="+layout)
+			}
 
-		// ctx.Content = template.HTML(contentBuffer.String())
+			l.Error("Render error: on render template", zap.Error(err), zap.String("name", name), zap.String("theme", theme))
 
-		// var layoutBuffer bytes.Buffer
-		// err = ctx.RenderTemplate(&layoutBuffer, ctx.Layout, htmlContext)
-		// if err != nil {
-		// 	logrus.WithFields(logrus.Fields{
-		// 		"error":  err,
-		// 		"name":   name,
-		// 		"theme":  ctx.Theme,
-		// 		"layout": ctx.Layout,
-		// 	}).Error("catu.theme.Render error on execute layout template")
-		// 	return err
-		// }
+			return err
+		}
 
-		// ctx.Content = template.HTML(layoutBuffer.String())
+		htmlContext.Content = template.HTML(contentBuffer.String())
 
-		// return ctx.RenderTemplate(w, "html", htmlContext)
+		var layoutBuffer bytes.Buffer
+		err = app.RenderTemplate(&layoutBuffer, theme, layout, htmlContext)
+		if err != nil {
+			l.Error("Render error on render layout", zap.Error(err), zap.String("name", name), zap.String("layout", layout), zap.String("theme", theme))
+			return err
+		}
+
+		htmlContext.Content = template.HTML(layoutBuffer.String())
+
+		err = app.RenderTemplate(w, theme, "html", htmlContext)
+		return err
 	}
 
 	return nil
@@ -112,13 +146,11 @@ func findAndParseTemplates(rootDir string, funcMap template.FuncMap) (*template.
 	return root, err
 }
 
-func renderPager(c echo.Context, r *pagination.Pager, queryString string) template.HTML {
+func renderPager(c echo.Context, r *Pager, queryString string) template.HTML {
 	var htmlBuffer bytes.Buffer
 
-	logrus.WithFields(logrus.Fields{
-		"count": r.Count,
-		"Pager": string(r.ToJSON()),
-	}).Debug("paginate params")
+	app := c.Get("app").(App)
+	app.GetLogger().Debug("renderPager", zap.Any("pager", r), zap.String("queryString", queryString))
 
 	if r.Count == 0 {
 		return template.HTML("")
@@ -141,15 +173,6 @@ func renderPager(c echo.Context, r *pagination.Pager, queryString string) templa
 		return template.HTML("")
 	}
 
-	// logrus.WithFields(logrus.Fields{
-	// 	"pageCount":  pageCount,
-	// 	"totalLinks": totalLinks,
-	// 	"MaxLinks":   r.MaxLinks,
-	// 	"Page":       r.Page,
-	// 	"before":     r.MaxLinks+2 < r.Page,
-	// 	"after":      r.MaxLinks+r.Page+1 < pageCount,
-	// }).Debug("Calculing 1>>>")
-
 	if totalLinks < pageCount {
 		if r.MaxLinks+2 < r.Page {
 			startInPage = r.Page - r.MaxLinks
@@ -169,7 +192,7 @@ func renderPager(c echo.Context, r *pagination.Pager, queryString string) templa
 	// Each link
 	for i := startInPage; i <= endInPage; i++ {
 		number := strconv.FormatInt(i, 10)
-		var link = pagination.Link{
+		var link = Link{
 			Path:   currentUrl + "?page=" + number + queryParamsStr,
 			Number: number,
 		}
@@ -177,11 +200,6 @@ func renderPager(c echo.Context, r *pagination.Pager, queryString string) templa
 		if i == r.Page {
 			link.IsActive = true
 		}
-
-		// logrus.WithFields(logrus.Fields{
-		// 	"i":    i,
-		// 	"Page": r.Page,
-		// }).Debug("Calculing afterEach")
 
 		r.Links = append(r.Links, link)
 	}
@@ -200,30 +218,44 @@ func renderPager(c echo.Context, r *pagination.Pager, queryString string) templa
 		r.NextNumber = number
 	}
 
-	// logrus.WithFields(logrus.Fields{
-	// 	"pagger":      string(r.ToJSON()),
-	// 	"startInPage": startInPage,
-	// 	"endInPage":   endInPage,
-	// }).Debug("Calculing end")
-
-	// err := ctx.RenderTemplate(&htmlBuffer, "components/paginate", TemplateCTX{
-	// 	Ctx: &r,
-	// })
-	// if err != nil {
-	// 	logrus.WithFields(logrus.Fields{
-	// 		"pagger": &r,
-	// 		"error":  err,
-	// 		"theme":  ctx.Theme,
-	// 	}).Error("theme.paginate Error on render template")
-	// }
-
 	return template.HTML(htmlBuffer.String())
 }
 
 func GetTheme(c echo.Context) string {
-	return c.Get("theme").(string)
+	t := c.Get("theme")
+	if t != nil {
+		return t.(string)
+	}
+
+	return "site"
 }
 
 func SetTheme(c echo.Context, theme string) {
 	c.Set("theme", theme)
+}
+
+func GetLayout(c echo.Context) string {
+	l := c.Get("layout")
+	if l != nil {
+		return l.(string)
+	}
+
+	return "layouts/default"
+}
+
+func SetLayout(c echo.Context, theme string) {
+	c.Set("layout", theme)
+}
+
+func SetCoreTemplateFunctions(app App) error {
+	app.SetTemplateFunction("paginate", paginate)
+	app.SetTemplateFunction("contentDates", contentDates)
+	app.SetTemplateFunction("truncate", truncate(app))
+	app.SetTemplateFunction("formatDecimalWithDots", formatDecimalWithDots)
+	app.SetTemplateFunction("html", noEscapeHTML)
+	app.SetTemplateFunction("currentDate", currentDate)
+	app.SetTemplateFunction("responseMessagesRender", ResponseMessagesRender)
+	app.SetTemplateFunction("partial", partial)
+
+	return nil
 }

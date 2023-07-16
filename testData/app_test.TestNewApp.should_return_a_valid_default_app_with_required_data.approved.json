@@ -3,6 +3,11 @@
     "RolesList": null
   },
   "Options": {
+    "DefaultContentType": "",
+    "ContentTypes": [
+      "text/html",
+      "application/json"
+    ],
     "GormOptions": null
   },
   "Plugins": {},
@@ -14,11 +19,11 @@
     "MatchMode": 0
   },
   "Configuration": {},
-  "DefaultDB": "",
-  "DBs": {},
+  "DefaultDB": "default",
   "Logger": {},
+  "Routes": {},
   "Resources": {},
   "RolesList": null,
-  "Theme": "",
-  "Layout": ""
+  "Theme": "site",
+  "Layout": "layouts/default"
 }

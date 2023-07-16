@@ -24,6 +24,10 @@ func (r *DefaultResponse) GetData() any {
 }
 
 func (r *DefaultResponse) GetStatusCode() int {
+	if r.Status == 0 {
+		return http.StatusOK
+	}
+
 	return r.Status
 }
 
@@ -37,14 +41,6 @@ type Route struct {
 	Layout     string
 	Model      interface{}
 }
-
-// 'get /businesswire/:id/import': {
-// 	controller: 'businesswire',
-// 	action: 'importOne',
-// 	permission: 'import_pr_newswire_news',
-// 	responseType: 'json',
-// 	title: 'Businesswire'
-// },
 
 type responseFormatter func(app App, c echo.Context, r *Route, resp Response) error
 
@@ -89,4 +85,24 @@ func NegotiateContentType(r *http.Request, offers []string, defaultOffer string)
 		}
 	}
 	return bestOffer
+}
+
+func IsPublicRoute(url string) bool {
+	return strings.HasPrefix(url, "/health") || strings.HasPrefix(url, "/public")
+}
+
+func HealthCheckHandler(c echo.Context) error {
+	return c.String(http.StatusOK, "ok")
+}
+
+type CustomBinder struct{}
+
+func (cb *CustomBinder) Bind(i interface{}, c echo.Context) (err error) {
+	// You may use default binder
+	db := &echo.DefaultBinder{}
+	if err = db.Bind(i, c); err != echo.ErrUnsupportedMediaType {
+		return
+	}
+
+	return
 }

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -13,8 +12,7 @@ import (
 	"time"
 
 	"github.com/go-bolo/core/configuration"
-	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
+	"go.uber.org/zap"
 )
 
 // CustomHTTPClient - Custom http client required to make requests testable
@@ -26,7 +24,7 @@ var (
 	HttpClient CustomHTTPClient
 )
 
-func Init() {
+func HttpClientInit() {
 	httpClientTimeout := configuration.GetInt64Env("HTTP_CLIENT_TIMEOUT", 120)
 
 	timeout := time.Second * time.Duration(httpClientTimeout)
@@ -34,11 +32,9 @@ func Init() {
 }
 
 // DownloadFile - Download one file
-func DownloadFile(url string, dest *os.File, headers http.Header) (bool, error) {
-	logrus.WithFields(logrus.Fields{
-		"url":  url,
-		"dest": dest.Name(),
-	}).Debug("DownloadFile will download")
+func DownloadFile(app App, url string, dest *os.File, headers http.Header) (bool, error) {
+	l := app.GetLogger().With(zap.String("func", "DownloadFile"))
+	l.Debug("will download", zap.String("url", url), zap.String("dest", dest.Name()))
 
 	var err error
 
@@ -53,11 +49,7 @@ func DownloadFile(url string, dest *os.File, headers http.Header) (bool, error) 
 
 	res, err := HttpClient.Do(req)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"url":     url,
-			"headers": headers,
-			"error":   err,
-		}).Error("DownloadFile error")
+		l.Error("error on request", zap.Error(err), zap.String("url", url))
 		return false, err
 	}
 
@@ -68,11 +60,7 @@ func DownloadFile(url string, dest *os.File, headers http.Header) (bool, error) 
 		return false, err
 	}
 
-	logrus.WithFields(logrus.Fields{
-		"url":  url,
-		"dest": dest.Name(),
-	}).Debug("DownloadFile done download")
-
+	l.Error("error on copy body", zap.Error(err), zap.String("url", url), zap.String("dest", dest.Name()))
 	return true, err
 }
 
@@ -88,26 +76,22 @@ func Get(url string, headers http.Header) (*http.Response, error) {
 	return HttpClient.Do(req)
 }
 
-func GetPageHTML(url string, headers http.Header) (string, error) {
+func GetPageHTML(app App, url string, headers http.Header) (string, error) {
+	l := app.GetLogger().With(zap.String("func", "GetPageHTML"))
+
 	resp, err := Get(url, headers)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"url":     url,
-			"headers": headers,
-			"error":   err,
-		}).Error("GetPageHTML error")
-		return "", err
+		l.Error("error on request", zap.Error(err), zap.String("url", url), zap.Any("headers", headers))
+		return "", fmt.Errorf("error on request: %w", err)
 	}
 
 	defer resp.Body.Close()
 
 	rdrBody := io.Reader(resp.Body)
-	bodyBytes, err := ioutil.ReadAll(rdrBody)
+	bodyBytes, err := io.ReadAll(rdrBody)
 	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"err": fmt.Sprintf("%+v\n", err),
-		}).Debug("catu.GetPageHTML error")
-		return "", errors.Wrap(err, "GetPageHTML error")
+		l.Error("error on read body data", zap.Error(err), zap.String("url", url), zap.Any("headers", headers))
+		return "", fmt.Errorf("error on read body data: %w", err)
 	}
 
 	return string(bodyBytes), nil
@@ -140,7 +124,7 @@ func PostFormURLEncoded(url string, body url.Values, target interface{}) error {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

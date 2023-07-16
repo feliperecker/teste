@@ -1,7 +1,7 @@
 package core_test
 
 import (
-	"log"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -41,8 +41,6 @@ func TestApp_Bootstrap(t *testing.T) {
 			got := core.NewApp(&core.DefaultAppOptions{})
 			err := got.Bootstrap()
 			assert.Nil(t, err)
-
-			log.Println(got)
 
 			approvals.VerifyJSONStruct(t, got)
 		})
@@ -136,13 +134,16 @@ func TestRequestFlow(t *testing.T) {
 		Plugins map[string]core.Plugin
 	}
 	type args struct {
-		accept string
+		accept      string
+		template    string
+		queryParams string
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantHas bool
+		name          string
+		fields        fields
+		args          args
+		wantHas       bool
+		expectedError *core.HTTPError
 	}{
 		{
 			name: "should run a action with success",
@@ -153,13 +154,47 @@ func TestRequestFlow(t *testing.T) {
 		{
 			name: "should return a html page with success",
 			args: args{
-				accept: "text/html",
+				accept:   "text/html",
+				template: "urls/example",
+			},
+		},
+		{
+			name: "should return template not found error page",
+			args: args{
+				accept:   "text/html",
+				template: "urls/unknown",
+			},
+		},
+		{
+			name: "should return a custom 500 error",
+			args: args{
+				accept:      "text/html",
+				template:    "urls/example",
+				queryParams: "errorToReturn=oi",
+			},
+			expectedError: &core.HTTPError{
+				Code:     http.StatusInternalServerError,
+				Message:  "",
+				Internal: errors.New(""),
+			},
+		},
+		{
+			name: "should return a custom 500 error with message",
+			args: args{
+				accept:      "text/html",
+				template:    "urls/example",
+				queryParams: "errorToReturn=oi&errorMessage=oi2",
+			},
+			expectedError: &core.HTTPError{
+				Code:     http.StatusInternalServerError,
+				Message:  "oi2",
+				Internal: errors.New("oi2"),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := core.NewApp(&core.DefaultAppOptions{})
+			app := GetTestApp()
 			err := app.AddPlugin("example", &URLShortenerPlugin{})
 			assert.Nil(t, err)
 
@@ -169,25 +204,30 @@ func TestRequestFlow(t *testing.T) {
 			p := app.GetPlugin("example").(*URLShortenerPlugin)
 
 			e := app.GetRouter()
-			req, err := http.NewRequest(http.MethodGet, "/", nil)
+			req, err := http.NewRequest(http.MethodGet, "/?"+tt.args.queryParams, nil)
 			if err != nil {
 				t.Errorf("TestCreateOneHandler error: %v", err)
 			}
 			rec := httptest.NewRecorder()
 			c := e.NewContext(req, rec)
+			c.Set("app", app)
 
-			c.Request().Header.Set("Accept", tt.args.accept)
+			core.CtxSetAccept(c, tt.args.accept)
 
 			rHandler := app.BindRoute("example_get", &core.Route{
-				Method: http.MethodGet,
-				Path:   "/",
-				Action: p.Controller.Query,
+				Method:   http.MethodGet,
+				Path:     "/",
+				Action:   p.Controller.Query,
+				Template: tt.args.template,
 			})
 
 			err = rHandler(c)
-			assert.Nil(t, err)
+			if tt.expectedError != nil {
+				assert.Equal(t, tt.expectedError, err)
+				return
+			}
 
-			log.Println("rec.Body>>>>>>>>>>>>>>>>>>>>>>>>>>>>", rec.Body)
+			assert.Nil(t, err)
 
 			switch tt.args.accept {
 			case "application/json":
@@ -198,17 +238,3 @@ func TestRequestFlow(t *testing.T) {
 		})
 	}
 }
-
-func SendJSON() {
-
-}
-
-func SendHTML() {
-
-}
-
-// - midlewares
-// - ProcessRequest()
-//  - Query()
-//  - responseFormatter
-// -

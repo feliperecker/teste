@@ -28,6 +28,11 @@
     }
   },
   "Options": {
+    "DefaultContentType": "",
+    "ContentTypes": [
+      "text/html",
+      "application/json"
+    ],
     "GormOptions": null
   },
   "Plugins": {},
@@ -41,8 +46,9 @@
   "Configuration": {},
   "DefaultDB": "default",
   "Logger": {},
+  "Routes": {},
   "Resources": {},
   "RolesList": null,
-  "Theme": "",
-  "Layout": ""
+  "Theme": "site",
+  "Layout": "layouts/default"
 }
