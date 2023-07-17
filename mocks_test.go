@@ -240,9 +240,20 @@ func (ctl *URLController) Count(c echo.Context) (core.Response, error) {
 }
 
 func (ctl *URLController) Update(c echo.Context) (core.Response, error) {
-	panic("TODO!")
+	r := core.DefaultResponse{
+		Data: FindOneJSONResponse{
+			URL: &URLModel{},
+		},
+	}
+
+	return &r, nil
 }
 
 func (ctl *URLController) Delete(c echo.Context) (core.Response, error) {
-	panic("TODO!")
+	r := core.DefaultResponse{
+		Status: http.StatusNoContent,
+		Data:   struct{}{},
+	}
+
+	return &r, nil
 }
