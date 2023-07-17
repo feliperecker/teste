@@ -1,0 +1,2 @@
+<!doctype html><html lang=pt-br><head><title>Bolo core</title><meta charset=utf-8></head><body class="fixed-left widescreen"><main>Example
+Name: oi</main></body></html>

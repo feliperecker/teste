@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -73,33 +72,6 @@ func TestDefaultApp_AddPlugin(t *testing.T) {
 			}
 			if err := app.AddPlugin(tt.args.pluginName, tt.args.p); (err != nil) != tt.wantErr {
 				t.Errorf("DefaultApp.AddPlugin() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestDefaultApp_GetPlugin(t *testing.T) {
-	type fields struct {
-		Plugins map[string]core.Plugin
-	}
-	type args struct {
-		pluginName string
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		wantP  core.Plugin
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := &core.DefaultApp{
-				Plugins: tt.fields.Plugins,
-			}
-			if gotP := app.GetPlugin(tt.args.pluginName); !reflect.DeepEqual(gotP, tt.wantP) {
-				t.Errorf("DefaultApp.GetPlugin() = %v, want %v", gotP, tt.wantP)
 			}
 		})
 	}
