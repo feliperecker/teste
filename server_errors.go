@@ -73,8 +73,8 @@ type ValidationFieldError struct {
 }
 
 func CustomHTTPErrorHandler(err error, c echo.Context) {
-	l := CtxGetLogger(c)
-	accept := CtxGetAccept(c)
+	l := GetLoggerCtx(c)
+	accept := GetAcceptCtx(c)
 
 	l.Debug("CustomHTTPErrorHandler running", zap.Any("err", err), zap.String("accept", accept))
 
@@ -114,15 +114,15 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 	case 500:
 		internalServerErrorHandler(err, c)
 	default:
-		l.Warn("customHTTPErrorHandler unknown error status code", zap.Error(err), zap.Int("statusCode", code), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", CtxGetAuthenticatedUser(c)), zap.Any("roles", CtxGetRoles(c)))
+		l.Warn("customHTTPErrorHandler unknown error status code", zap.Error(err), zap.Int("statusCode", code), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUserCtx(c)), zap.Any("roles", GetRolesCtx(c)))
 		c.JSON(http.StatusInternalServerError, &HTTPError{Code: 500, Message: "Unknown Error"})
 	}
 }
 
 func forbiddenErrorHandler(err error, c echo.Context) error {
-	accept := CtxGetAccept(c)
-	metadata := CtxGetMetadata(c)
-	l := CtxGetLogger(c)
+	accept := GetAcceptCtx(c)
+	metadata := GetMetadataCtx(c)
+	l := GetLoggerCtx(c)
 
 	l.Debug("forbiddenErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -144,11 +144,11 @@ func forbiddenErrorHandler(err error, c echo.Context) error {
 }
 
 func unAuthorizedErrorHandler(err error, c echo.Context) error {
-	l := CtxGetLogger(c)
-	accept := CtxGetAccept(c)
-	metadata := CtxGetMetadata(c)
+	l := GetLoggerCtx(c)
+	accept := GetAcceptCtx(c)
+	metadata := GetMetadataCtx(c)
 
-	l.Info("unAuthorizedErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", CtxGetAuthenticatedUser(c)), zap.Any("roles", CtxGetRoles(c)))
+	l.Info("unAuthorizedErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUserCtx(c)), zap.Any("roles", GetRolesCtx(c)))
 
 	switch accept {
 	case "text/html":
@@ -168,9 +168,9 @@ func unAuthorizedErrorHandler(err error, c echo.Context) error {
 }
 
 func notFoundErrorHandler(err error, c echo.Context) error {
-	accept := CtxGetAccept(c)
-	metadata := CtxGetMetadata(c)
-	l := CtxGetLogger(c)
+	accept := GetAcceptCtx(c)
+	metadata := GetMetadataCtx(c)
+	l := GetLoggerCtx(c)
 
 	l.Debug("notFoundErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -191,9 +191,9 @@ func notFoundErrorHandler(err error, c echo.Context) error {
 }
 
 func validationError(ve validator.ValidationErrors, err error, c echo.Context) error {
-	accept := CtxGetAccept(c)
-	l := CtxGetLogger(c)
-	metadata := CtxGetMetadata(c)
+	accept := GetAcceptCtx(c)
+	l := GetLoggerCtx(c)
+	metadata := GetMetadataCtx(c)
 
 	l.Debug("validationError running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -227,9 +227,9 @@ func validationError(ve validator.ValidationErrors, err error, c echo.Context) e
 }
 
 func internalServerErrorHandler(err error, c echo.Context) error {
-	accept := CtxGetAccept(c)
-	l := CtxGetLogger(c)
-	metadata := CtxGetMetadata(c)
+	accept := GetAcceptCtx(c)
+	l := GetLoggerCtx(c)
+	metadata := GetMetadataCtx(c)
 
 	code := http.StatusInternalServerError
 	if he, ok := err.(*HTTPError); ok {

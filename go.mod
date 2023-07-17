@@ -4,6 +4,8 @@ go 1.19
 
 require (
 	github.com/approvals/go-approval-tests v0.0.0-20220530063708-32d5677069bd
+	github.com/benbjohnson/clock v1.1.0
+	github.com/go-bolo/clock v0.0.3
 	github.com/go-playground/validator/v10 v10.14.1
 	github.com/google/uuid v1.3.0
 	github.com/gookit/event v1.1.1

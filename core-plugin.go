@@ -33,3 +33,11 @@ func (p *CorePlugin) BindMiddlewares(a App) error {
 	BindMiddlewares(a, p)
 	return nil
 }
+
+type CorePluginOpts struct{}
+
+func NewCorePlugin(opts *CorePluginOpts) *CorePlugin {
+	return &CorePlugin{
+		Name: "core",
+	}
+}

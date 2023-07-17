@@ -61,7 +61,6 @@ func (r *Role) RemovePermission(permission string) {
 			return
 		}
 	}
-
 }
 
 func LoadRoles() (string, error) {

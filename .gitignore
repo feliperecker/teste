@@ -21,3 +21,6 @@
 go.work
 
 *.received.*
+*.sql
+*.sqlite
+*.log

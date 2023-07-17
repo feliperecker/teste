@@ -2,13 +2,16 @@ package core_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	approvals "github.com/approvals/go-approval-tests"
 	"github.com/go-bolo/core"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -212,12 +215,12 @@ func TestRequestFlow(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.Set("app", app)
 
-			core.CtxSetAccept(c, tt.args.accept)
+			core.SetAcceptCtx(c, tt.args.accept)
 
 			rHandler := app.BindRoute("example_get", &core.Route{
 				Method:   http.MethodGet,
 				Path:     "/",
-				Action:   p.Controller.Query,
+				Action:   p.Controller.Find,
 				Template: tt.args.template,
 			})
 
@@ -228,6 +231,138 @@ func TestRequestFlow(t *testing.T) {
 			}
 
 			assert.Nil(t, err)
+
+			switch tt.args.accept {
+			case "application/json":
+				approvals.VerifyJSONBytes(t, rec.Body.Bytes())
+			case "text/html":
+				approvals.VerifyString(t, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestRequest_CRUD(t *testing.T) {
+	app := GetTestApp()
+	err := app.AddPlugin("example", &URLShortenerPlugin{})
+	assert.Nil(t, err)
+	err = app.Bootstrap()
+	assert.Nil(t, err)
+	err = app.GetDB().AutoMigrate(
+		&URLModel{},
+	)
+
+	app.GetAcl().SetDisabled(true)
+
+	savedRecord1 := URLModel{
+		Title: "Google",
+		Path:  "http://www.google.com",
+	}
+	savedRecord1.Save(app)
+
+	savedRecord2 := URLModel{
+		Title: "Bing",
+		Path:  "http://www.bing.com",
+	}
+	savedRecord2.Save(app)
+
+	assert.Nil(t, err)
+
+	type fields struct {
+		Plugins map[string]core.Plugin
+	}
+	type args struct {
+		accept      string
+		queryParams string
+		data        io.Reader
+		url         string
+		method      string
+	}
+	tests := []struct {
+		name           string
+		fields         fields
+		args           args
+		wantHas        bool
+		expectedStatus int
+		expectedError  *core.HTTPError
+	}{
+		{
+			name: "should run a action with success",
+			args: args{
+				method: http.MethodGet,
+				url:    "/urls",
+				accept: "application/json",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "should return a html page with success",
+			args: args{
+				method: http.MethodGet,
+				url:    "/urls",
+				accept: "text/html",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "findOne should return one record",
+			args: args{
+				method: http.MethodGet,
+				url:    "/urls/" + savedRecord1.GetID(),
+				accept: "text/html",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "findOne should return 404 with invalid id",
+			args: args{
+				method: http.MethodGet,
+				url:    "/urls/1111111111",
+				accept: "text/html",
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name: "JSON: findOne should return 404 with invalid id",
+			args: args{
+				method: http.MethodGet,
+				url:    "/urls/1111111111",
+				accept: "application/json",
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name: "JSON: create should create a new record",
+			args: args{
+				method: http.MethodPost,
+				url:    "/api/v1/urls",
+				accept: "application/json",
+				data:   strings.NewReader(`{"url":{"title":"example","path":"http://www.example.com"}}`),
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name: "JSON: create should create a new record",
+			args: args{
+				method: http.MethodGet,
+				url:    "/api/v1/urls-count",
+				accept: "application/json",
+			},
+			expectedStatus: http.StatusOK,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := app.GetRouter()
+
+			req := httptest.NewRequest(tt.args.method, tt.args.url, tt.args.data)
+			req.Header.Set(echo.HeaderAccept, tt.args.accept)
+			req.Header.Set(echo.HeaderContentType, "application/json")
+
+			rec := httptest.NewRecorder() // run the request:
+			e.ServeHTTP(rec, req)
+
+			assert.Equal(t, tt.expectedStatus, rec.Code)
 
 			switch tt.args.accept {
 			case "application/json":

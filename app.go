@@ -10,6 +10,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/go-bolo/clock"
 	"github.com/go-bolo/core/configuration"
 	"github.com/go-bolo/core/helpers"
 	"github.com/go-playground/validator/v10"
@@ -27,6 +28,9 @@ import (
 
 type App interface {
 	GetEnv() string
+
+	GetClock() clock.Clock
+	SetClock(clock clock.Clock) error
 
 	AddPlugin(pluginName string, p Plugin) error
 	GetPlugin(pluginName string) (p Plugin)
@@ -52,8 +56,10 @@ type App interface {
 	GetRouter() *echo.Echo
 	SetRouterGroup(name, path string) *echo.Group
 	GetRouterGroup(name string) *echo.Group
-	SetResource(name string, httpController Controller, routerGroup *echo.Group) error
+	SetResource(r *Resource) error
+
 	BindRoute(routeName string, r *Route) echo.HandlerFunc
+	SetRoute(routeName string, route *Route) error
 
 	GetDefaultContentType() string
 	GetContentTypes() []string
@@ -62,8 +68,6 @@ type App interface {
 	SetResponseFormatter(accept string, rf responseFormatter) error
 
 	StartHTTPServer() error
-
-	SetRoute(routeName string, route *Route) error
 
 	// Theme / view methods
 	GetTheme() string
@@ -106,7 +110,8 @@ func NewApp(opts *DefaultAppOptions) App {
 	}
 
 	app := &DefaultApp{
-		Acl:                NewAcl(),
+		Acl:                NewAcl(&NewAclOpts{Logger: logger}),
+		Clock:              clock.New(),
 		Options:            opts,
 		Plugins:            make(map[string]Plugin),
 		Events:             event.NewManager("app"),
@@ -127,19 +132,23 @@ func NewApp(opts *DefaultAppOptions) App {
 	app.router.GET("/health", HealthCheckHandler)
 	app.router.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			CtxSetDefaultValues(c, app)
-			return nil
+			SetDefaultValuesCtx(c, app)
+			return next(c)
 		}
 	})
+
 	app.router.Binder = &CustomBinder{}
 	app.router.HTTPErrorHandler = CustomHTTPErrorHandler
 	app.router.Validator = &helpers.CustomValidator{Validator: validator.New()}
+	// add core plugin, is set as plugin to be overriden if needed:
+	app.AddPlugin("core", NewCorePlugin(&CorePluginOpts{}))
 
 	return app
 }
 
 type DefaultApp struct {
 	Acl           Acl
+	Clock         clock.Clock
 	Options       *DefaultAppOptions
 	Plugins       map[string]Plugin
 	Models        map[string]Model
@@ -168,6 +177,15 @@ type DefaultApp struct {
 	templateFunctions template.FuncMap
 }
 
+func (app *DefaultApp) GetClock() clock.Clock {
+	return app.Clock
+}
+
+func (app *DefaultApp) SetClock(clock clock.Clock) error {
+	app.Clock = clock
+	return nil
+}
+
 func (app *DefaultApp) GetEnv() string {
 	return os.Getenv(ENV_VARIABLE_NAME)
 }
@@ -194,23 +212,22 @@ func (app *DefaultApp) GetRouterGroup(name string) *echo.Group {
 	return app.routerGroups[name]
 }
 
-func (app *DefaultApp) SetResource(name string, httpController Controller, routerGroup *echo.Group) error {
-	app.Resources[name] = &Resource{
-		Name: name,
-		// Group:    routerGroup,
-		// Handlers: httpController,
-	}
+func (app *DefaultApp) SetResource(r *Resource) error {
+	app.Resources[r.Name] = r
 	return nil
 }
 
 func (app *DefaultApp) BindRoute(routeName string, r *Route) echo.HandlerFunc {
 	return func(c echo.Context) error {
+		c.Set("route", r)
+
 		res, err := r.Action(c)
+
 		if err != nil {
 			return err
 		}
 
-		return app.GetResponseFormatter(CtxGetAccept(c))(app, c, r, res)
+		return app.GetResponseFormatter(GetAcceptCtx(c))(app, c, r, res)
 	}
 }
 
@@ -388,7 +405,7 @@ func (app *DefaultApp) InitDatabase(name string, engine string, isDefault bool) 
 	var err error
 	var db *gorm.DB
 
-	dbURI := app.Configuration.GetF(DB_URI, "test.sqlite?charset=utf8mb4")
+	dbURI := app.Configuration.GetF(DB_URI, "file::memory:?charset=utf8mb4")
 	dbSlowThreshold := app.Configuration.GetInt64F(DB_SLOW_THRESHOLD, 400)
 	logQuery := app.Configuration.GetF(LOG_QUERY, "")
 
@@ -502,15 +519,32 @@ func (app *DefaultApp) Bootstrap() error {
 		templates: app.GetTemplates(),
 	}
 
+	for routeName, r := range app.Resources {
+		l.Debug("DefaultApp.Bootstrap: registering route", zap.String("route", routeName))
+		err := r.BindRoutes(app)
+		if err != nil {
+			return fmt.Errorf("DefaultApp.Bootstrap: Error on bind resource route: %w", err)
+		}
+	}
+
 	for routeName, r := range app.Routes {
 		l.Debug("DefaultApp.Bootstrap: registering route", zap.String("route", routeName))
+
+		if r.Path == "" {
+			return fmt.Errorf("route path is required: %s", r.Path)
+		}
 
 		router := app.GetRouter()
 
 		switch r.Method {
 		case "POST":
+			router.POST(r.Path, app.BindRoute(routeName, r))
 		case "GET":
 			router.GET(r.Path, app.BindRoute(routeName, r))
+		case "PUT":
+			router.PUT(r.Path, app.BindRoute(routeName, r))
+		case "DELETE":
+			router.DELETE(r.Path, app.BindRoute(routeName, r))
 		default:
 			return fmt.Errorf("DefaultApp.Bootstrap: invalid route method: %s", r.Method)
 		}

@@ -10,7 +10,12 @@
     ],
     "GormOptions": null
   },
-  "Plugins": {},
+  "Plugins": {
+    "core": {
+      "Plugin": null,
+      "Name": "core"
+    }
+  },
   "Models": {},
   "Events": {
     "EnableLock": true,

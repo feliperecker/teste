@@ -9,14 +9,18 @@ import (
 	"go.uber.org/zap"
 )
 
-func CtxSetDefaultValues(c echo.Context, app App) error {
+func GetAppCtx(c echo.Context) App {
+	return c.Get("app").(App)
+}
+
+func SetDefaultValuesCtx(c echo.Context, app App) error {
 	c.Set("app", app)
 	c.Set("logger", app.GetLogger().With(zap.String("RID", uuid.New().String())))
 
-	// CtxSetAccept(c, app.GetDefaultContentType())
-	CtxSetAuthenticatedUser(c, nil)
-	CtxSetRoles(c, []string{})
-	CtxSetMetadata(c, NewMetadata())
+	// SetAcceptCtx(c, app.GetDefaultContentType())
+	SetAuthenticatedUserCtx(c, nil)
+	SetRolesCtx(c, []string{})
+	SetMetadataCtx(c, NewMetadata())
 
 	err, _ := app.GetEvents().Fire("set-default-request-context-values", event.M{"app": app, "context": c})
 	if err != nil {
@@ -26,13 +30,17 @@ func CtxSetDefaultValues(c echo.Context, app App) error {
 	return nil
 }
 
+func GetRouteCtx(c echo.Context) *Route {
+	return c.Get("route").(*Route)
+}
+
 // SetAccept - Accept used to determine the response format.
-func CtxSetAccept(c echo.Context, accept string) {
+func SetAcceptCtx(c echo.Context, accept string) {
 	c.Set("accept", accept)
 }
 
 // GetAccept - Accept is used to determine the response format.
-func CtxGetAccept(c echo.Context) string {
+func GetAcceptCtx(c echo.Context) string {
 	accept := c.Get("accept")
 	if accept == nil {
 		return c.Get("app").(App).GetDefaultContentType()
@@ -41,7 +49,7 @@ func CtxGetAccept(c echo.Context) string {
 	return accept.(string)
 }
 
-func CtxGetAuthenticatedUser(c echo.Context) User {
+func GetAuthenticatedUserCtx(c echo.Context) User {
 	user := c.Get("user")
 	if user == nil {
 		return nil
@@ -50,12 +58,12 @@ func CtxGetAuthenticatedUser(c echo.Context) User {
 	return user.(User)
 }
 
-func CtxSetAuthenticatedUser(c echo.Context, user User) error {
+func SetAuthenticatedUserCtx(c echo.Context, user User) error {
 	c.Set("user", user)
 	return nil
 }
 
-func CtxGetRoles(c echo.Context) []string {
+func GetRolesCtx(c echo.Context) []string {
 	roles := c.Get("roles")
 	if roles == nil {
 		return []string{}
@@ -64,16 +72,16 @@ func CtxGetRoles(c echo.Context) []string {
 	return roles.([]string)
 }
 
-func CtxSetRoles(c echo.Context, roles []string) error {
+func SetRolesCtx(c echo.Context, roles []string) error {
 	c.Set("roles", roles)
 	return nil
 }
 
-func CtxIsAuthenticated(c echo.Context) bool {
-	return CtxGetAuthenticatedUser(c) != nil
+func IsAuthenticatedCtx(c echo.Context) bool {
+	return GetAuthenticatedUserCtx(c) != nil
 }
 
-func CtxGetMetadata(c echo.Context) Metadata {
+func GetMetadataCtx(c echo.Context) Metadata {
 	metadata := c.Get("metadata")
 	if metadata == nil {
 		return NewMetadata()
@@ -82,11 +90,11 @@ func CtxGetMetadata(c echo.Context) Metadata {
 	return metadata.(Metadata)
 }
 
-func CtxSetMetadata(c echo.Context, metadata Metadata) error {
+func SetMetadataCtx(c echo.Context, metadata Metadata) error {
 	c.Set("metadata", metadata)
 	return nil
 }
 
-func CtxGetLogger(c echo.Context) zap.Logger {
-	return c.Get("logger").(zap.Logger)
+func GetLoggerCtx(c echo.Context) *zap.Logger {
+	return c.Get("logger").(*zap.Logger)
 }
