@@ -342,13 +342,31 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 		},
 		{
-			name: "JSON: create should create a new record",
+			name: "JSON: get count",
 			args: args{
 				method: http.MethodGet,
 				url:    "/api/v1/urls-count",
 				accept: "application/json",
 			},
 			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "JSON: should run update action",
+			args: args{
+				method: http.MethodPost,
+				url:    "/api/v1/urls/1",
+				accept: "application/json",
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name: "JSON: should run delete action",
+			args: args{
+				method: http.MethodDelete,
+				url:    "/api/v1/urls/1",
+				accept: "application/json",
+			},
+			expectedStatus: http.StatusNoContent,
 		},
 	}
 	for _, tt := range tests {

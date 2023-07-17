@@ -242,7 +242,9 @@ func (ctl *URLController) Count(c echo.Context) (core.Response, error) {
 func (ctl *URLController) Update(c echo.Context) (core.Response, error) {
 	r := core.DefaultResponse{
 		Data: FindOneJSONResponse{
-			URL: &URLModel{},
+			URL: &URLModel{
+				ID: 13,
+			},
 		},
 	}
 
