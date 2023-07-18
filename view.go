@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-bolo/core/pagination"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/zap"
 )
@@ -146,7 +147,7 @@ func findAndParseTemplates(rootDir string, funcMap template.FuncMap) (*template.
 	return root, err
 }
 
-func renderPager(c echo.Context, r *Pager, queryString string) template.HTML {
+func renderPager(c echo.Context, r *pagination.Pager, queryString string) template.HTML {
 	var htmlBuffer bytes.Buffer
 
 	app := c.Get("app").(App)
@@ -192,7 +193,7 @@ func renderPager(c echo.Context, r *Pager, queryString string) template.HTML {
 	// Each link
 	for i := startInPage; i <= endInPage; i++ {
 		number := strconv.FormatInt(i, 10)
-		var link = Link{
+		var link = pagination.Link{
 			Path:   currentUrl + "?page=" + number + queryParamsStr,
 			Number: number,
 		}

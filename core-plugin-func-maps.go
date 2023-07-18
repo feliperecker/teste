@@ -5,6 +5,7 @@ import (
 	"html/template"
 
 	"github.com/go-bolo/core/helpers"
+	"github.com/go-bolo/core/pagination"
 	"github.com/labstack/echo/v4"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
@@ -14,7 +15,7 @@ func noEscapeHTML(str string) template.HTML {
 	return template.HTML(str)
 }
 
-func paginate(c echo.Context, pager *Pager, queryString string) template.HTML {
+func paginate(c echo.Context, pager *pagination.Pager, queryString string) template.HTML {
 	return renderPager(c, pager, queryString)
 }
 
