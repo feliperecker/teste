@@ -1,4 +1,4 @@
-package core
+package bolo
 
 type Model interface {
 	GetID() string

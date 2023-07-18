@@ -1,4 +1,4 @@
-package core
+package bolo
 
 import "net/http"
 

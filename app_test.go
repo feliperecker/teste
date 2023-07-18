@@ -1,4 +1,4 @@
-package core_test
+package bolo_test
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	approvals "github.com/approvals/go-approval-tests"
-	"github.com/go-bolo/core"
+	bolo "github.com/go-bolo/bolo"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -24,7 +24,7 @@ func TestNewApp(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := core.NewApp(&core.DefaultAppOptions{})
+			got := bolo.NewApp(&bolo.DefaultAppOptions{})
 
 			approvals.VerifyJSONStruct(t, got)
 		})
@@ -40,7 +40,7 @@ func TestApp_Bootstrap(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := core.NewApp(&core.DefaultAppOptions{})
+			got := bolo.NewApp(&bolo.DefaultAppOptions{})
 			err := got.Bootstrap()
 			assert.Nil(t, err)
 
@@ -51,11 +51,11 @@ func TestApp_Bootstrap(t *testing.T) {
 
 func TestDefaultApp_AddPlugin(t *testing.T) {
 	type fields struct {
-		Plugins map[string]core.Plugin
+		Plugins map[string]bolo.Plugin
 	}
 	type args struct {
 		pluginName string
-		p          core.Plugin
+		p          bolo.Plugin
 	}
 	tests := []struct {
 		name    string
@@ -67,7 +67,7 @@ func TestDefaultApp_AddPlugin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &core.DefaultApp{
+			app := &bolo.DefaultApp{
 				Plugins: tt.fields.Plugins,
 			}
 			if err := app.AddPlugin(tt.args.pluginName, tt.args.p); (err != nil) != tt.wantErr {
@@ -79,7 +79,7 @@ func TestDefaultApp_AddPlugin(t *testing.T) {
 
 func TestDefaultApp_HasPlugin(t *testing.T) {
 	type fields struct {
-		Plugins map[string]core.Plugin
+		Plugins map[string]bolo.Plugin
 	}
 	type args struct {
 		pluginName string
@@ -94,7 +94,7 @@ func TestDefaultApp_HasPlugin(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			app := &core.DefaultApp{
+			app := &bolo.DefaultApp{
 				Plugins: tt.fields.Plugins,
 			}
 			if gotHas := app.HasPlugin(tt.args.pluginName); gotHas != tt.wantHas {
@@ -106,7 +106,7 @@ func TestDefaultApp_HasPlugin(t *testing.T) {
 
 func TestRequestFlow(t *testing.T) {
 	type fields struct {
-		Plugins map[string]core.Plugin
+		Plugins map[string]bolo.Plugin
 	}
 	type args struct {
 		accept      string
@@ -118,7 +118,7 @@ func TestRequestFlow(t *testing.T) {
 		fields        fields
 		args          args
 		wantHas       bool
-		expectedError *core.HTTPError
+		expectedError *bolo.HTTPError
 	}{
 		{
 			name: "should run a action with success",
@@ -147,7 +147,7 @@ func TestRequestFlow(t *testing.T) {
 				template:    "urls/example",
 				queryParams: "errorToReturn=oi",
 			},
-			expectedError: &core.HTTPError{
+			expectedError: &bolo.HTTPError{
 				Code:     http.StatusInternalServerError,
 				Message:  "",
 				Internal: errors.New(""),
@@ -160,7 +160,7 @@ func TestRequestFlow(t *testing.T) {
 				template:    "urls/example",
 				queryParams: "errorToReturn=oi&errorMessage=oi2",
 			},
-			expectedError: &core.HTTPError{
+			expectedError: &bolo.HTTPError{
 				Code:     http.StatusInternalServerError,
 				Message:  "oi2",
 				Internal: errors.New("oi2"),
@@ -187,9 +187,9 @@ func TestRequestFlow(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.Set("app", app)
 
-			core.SetAcceptCtx(c, tt.args.accept)
+			bolo.SetAcceptCtx(c, tt.args.accept)
 
-			rHandler := app.BindRoute("example_get", &core.Route{
+			rHandler := app.BindRoute("example_get", &bolo.Route{
 				Method:   http.MethodGet,
 				Path:     "/",
 				Action:   p.Controller.Find,
@@ -241,7 +241,7 @@ func TestRequest_CRUD(t *testing.T) {
 	assert.Nil(t, err)
 
 	type fields struct {
-		Plugins map[string]core.Plugin
+		Plugins map[string]bolo.Plugin
 	}
 	type args struct {
 		accept      string
@@ -256,7 +256,7 @@ func TestRequest_CRUD(t *testing.T) {
 		args           args
 		wantHas        bool
 		expectedStatus int
-		expectedError  *core.HTTPError
+		expectedError  *bolo.HTTPError
 	}{
 		{
 			name: "should run a action with success",

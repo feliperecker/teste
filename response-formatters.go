@@ -1,4 +1,4 @@
-package core
+package bolo
 
 import (
 	"github.com/labstack/echo/v4"

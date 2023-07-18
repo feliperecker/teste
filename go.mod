@@ -1,4 +1,4 @@
-module github.com/go-bolo/core
+module github.com/go-bolo/bolo
 
 go 1.19
 

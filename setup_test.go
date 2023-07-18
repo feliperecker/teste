@@ -1,4 +1,4 @@
-package core_test
+package bolo_test
 
 import (
 	"os"
@@ -7,8 +7,8 @@ import (
 
 	approvals "github.com/approvals/go-approval-tests"
 	"github.com/approvals/go-approval-tests/reporters"
+	bolo "github.com/go-bolo/bolo"
 	"github.com/go-bolo/clock"
-	"github.com/go-bolo/core"
 )
 
 func TestMain(m *testing.M) {
@@ -21,10 +21,10 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func GetTestApp() core.App {
+func GetTestApp() bolo.App {
 	os.Setenv("TEMPLATE_FOLDER", "./_mocks/themes")
 
-	app := core.NewApp(&core.DefaultAppOptions{})
+	app := bolo.NewApp(&bolo.DefaultAppOptions{})
 	app.SetTheme("site")
 
 	c := clock.NewMock()

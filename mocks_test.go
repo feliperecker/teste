@@ -1,4 +1,4 @@
-package core_test
+package bolo_test
 
 import (
 	"errors"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/go-bolo/core"
+	bolo "github.com/go-bolo/bolo"
 	"github.com/gookit/event"
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -16,12 +16,12 @@ import (
 
 // URLShortener is a plugin that shortens URLs.
 type URLShortenerPlugin struct {
-	App        core.App `json:"-"`
-	Controller core.Controller
+	App        bolo.App `json:"-"`
+	Controller bolo.Controller
 }
 
 // Init initializes the plugin.
-func (p *URLShortenerPlugin) Init(app core.App) error {
+func (p *URLShortenerPlugin) Init(app bolo.App) error {
 	p.Controller = &URLController{
 		App: app,
 	}
@@ -49,17 +49,17 @@ func (p *URLShortenerPlugin) SetName(name string) error {
 	return nil
 }
 
-func (p *URLShortenerPlugin) BindRoutes(app core.App) error {
+func (p *URLShortenerPlugin) BindRoutes(app bolo.App) error {
 	ctl := p.Controller
 
-	app.SetRoute("urls_query", &core.Route{
+	app.SetRoute("urls_query", &bolo.Route{
 		Method:   http.MethodGet,
 		Path:     "/urls",
 		Action:   ctl.Find,
 		Template: "urls/find",
 	})
 
-	app.SetRoute("urls_findOne", &core.Route{
+	app.SetRoute("urls_findOne", &bolo.Route{
 		Method:   http.MethodGet,
 		Path:     "/urls/:id",
 		Action:   ctl.FindOne,
@@ -67,7 +67,7 @@ func (p *URLShortenerPlugin) BindRoutes(app core.App) error {
 	})
 
 	// app.SetResource("urls", ctl, "/api/v1/urls")
-	app.SetResource(&core.Resource{
+	app.SetResource(&bolo.Resource{
 		Name:       "urls",
 		Prefix:     "/api/v1",
 		Path:       "/urls",
@@ -79,12 +79,12 @@ func (p *URLShortenerPlugin) BindRoutes(app core.App) error {
 }
 
 type JSONResponse struct {
-	core.BaseListReponse
+	bolo.BaseListReponse
 	URLs *[]*URLModel `json:"url"`
 }
 
 type CountJSONResponse struct {
-	core.BaseMetaResponse
+	bolo.BaseMetaResponse
 }
 
 type FindOneJSONResponse struct {
@@ -96,10 +96,10 @@ type BodyRequest struct {
 }
 
 type URLController struct {
-	App core.App `json:"-"`
+	App bolo.App `json:"-"`
 }
 
-func (ctl *URLController) Find(c echo.Context) (core.Response, error) {
+func (ctl *URLController) Find(c echo.Context) (bolo.Response, error) {
 	data := struct {
 		Name string `json:"name"`
 	}{
@@ -114,30 +114,30 @@ func (ctl *URLController) Find(c echo.Context) (core.Response, error) {
 			eCodeInt = 500
 		}
 
-		return nil, &core.HTTPError{
+		return nil, &bolo.HTTPError{
 			Code:     eCodeInt,
 			Message:  eMessage,
 			Internal: errors.New(eMessage),
 		}
 	}
 
-	r := core.DefaultResponse{
+	r := bolo.DefaultResponse{
 		Data: data,
 	}
 
 	return &r, nil
 }
 
-func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
+func (ctl *URLController) Create(c echo.Context) (bolo.Response, error) {
 	var err error
 
-	app := core.GetAppCtx(c)
+	app := bolo.GetAppCtx(c)
 	acl := app.GetAcl()
-	route := core.GetRouteCtx(c)
+	route := bolo.GetRouteCtx(c)
 
-	can := acl.Can(route.Permission, core.GetRolesCtx(c))
+	can := acl.Can(route.Permission, bolo.GetRolesCtx(c))
 	if !can {
-		return nil, &core.HTTPError{
+		return nil, &bolo.HTTPError{
 			Code:    http.StatusForbidden,
 			Message: "Forbidden",
 		}
@@ -148,14 +148,14 @@ func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
 	if err := c.Bind(&body); err != nil {
 		if er, ok := err.(*echo.HTTPError); ok {
 
-			return nil, &core.HTTPError{
+			return nil, &bolo.HTTPError{
 				Code:     er.Code,
 				Message:  er.Message,
 				Internal: er.Internal,
 			}
 		}
 
-		return nil, &core.HTTPError{
+		return nil, &bolo.HTTPError{
 			Code:     http.StatusInternalServerError,
 			Message:  "Invalid body data",
 			Internal: fmt.Errorf("urls.Create error on parse body: %w", err),
@@ -165,8 +165,8 @@ func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
 	record := body.URL
 	record.ID = 0
 
-	if core.IsAuthenticatedCtx(c) {
-		creatorID := core.GetAuthenticatedUserCtx(c).GetID()
+	if bolo.IsAuthenticatedCtx(c) {
+		creatorID := bolo.GetAuthenticatedUserCtx(c).GetID()
 		record.CreatorID = &creatorID
 	}
 
@@ -174,7 +174,7 @@ func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
 		if _, ok := err.(*echo.HTTPError); ok {
 			return nil, err
 		}
-		return nil, &core.HTTPError{
+		return nil, &bolo.HTTPError{
 			Code:     http.StatusInternalServerError,
 			Message:  "Error on validate data",
 			Internal: err,
@@ -190,7 +190,7 @@ func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
 		URL: record,
 	}
 
-	r := core.DefaultResponse{
+	r := bolo.DefaultResponse{
 		Status: http.StatusCreated,
 		Data:   resp,
 	}
@@ -198,28 +198,28 @@ func (ctl *URLController) Create(c echo.Context) (core.Response, error) {
 	return &r, nil
 }
 
-func (ctl *URLController) FindOne(c echo.Context) (core.Response, error) {
-	app := core.GetAppCtx(c)
+func (ctl *URLController) FindOne(c echo.Context) (bolo.Response, error) {
+	app := bolo.GetAppCtx(c)
 	id := c.Param("id")
 
 	record, err := FindOneURL(app, id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, &core.HTTPError{
+			return nil, &bolo.HTTPError{
 				Code:     http.StatusNotFound,
 				Message:  "Not found",
 				Internal: err,
 			}
 		}
 
-		return nil, &core.HTTPError{
+		return nil, &bolo.HTTPError{
 			Code:     http.StatusInternalServerError,
 			Message:  "Error on FindOneURL",
 			Internal: err,
 		}
 	}
 
-	r := core.DefaultResponse{
+	r := bolo.DefaultResponse{
 		Status: http.StatusOK,
 		Data:   record,
 	}
@@ -227,10 +227,10 @@ func (ctl *URLController) FindOne(c echo.Context) (core.Response, error) {
 	return &r, nil
 }
 
-func (ctl *URLController) Count(c echo.Context) (core.Response, error) {
-	r := core.DefaultResponse{
+func (ctl *URLController) Count(c echo.Context) (bolo.Response, error) {
+	r := bolo.DefaultResponse{
 		Data: CountJSONResponse{
-			BaseMetaResponse: core.BaseMetaResponse{
+			BaseMetaResponse: bolo.BaseMetaResponse{
 				Count: 90,
 			},
 		},
@@ -239,8 +239,8 @@ func (ctl *URLController) Count(c echo.Context) (core.Response, error) {
 	return &r, nil
 }
 
-func (ctl *URLController) Update(c echo.Context) (core.Response, error) {
-	r := core.DefaultResponse{
+func (ctl *URLController) Update(c echo.Context) (bolo.Response, error) {
+	r := bolo.DefaultResponse{
 		Data: FindOneJSONResponse{
 			URL: &URLModel{
 				ID: 13,
@@ -251,8 +251,8 @@ func (ctl *URLController) Update(c echo.Context) (core.Response, error) {
 	return &r, nil
 }
 
-func (ctl *URLController) Delete(c echo.Context) (core.Response, error) {
-	r := core.DefaultResponse{
+func (ctl *URLController) Delete(c echo.Context) (bolo.Response, error) {
+	r := bolo.DefaultResponse{
 		Status: http.StatusNoContent,
 		Data:   struct{}{},
 	}

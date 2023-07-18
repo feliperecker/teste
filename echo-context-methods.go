@@ -1,9 +1,9 @@
-package core
+package bolo
 
 import (
 	"fmt"
 
-	"github.com/go-bolo/core/pagination"
+	"github.com/go-bolo/bolo/pagination"
 	"github.com/go-bolo/query_parser_to_db"
 	"github.com/google/uuid"
 	"github.com/gookit/event"

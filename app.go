@@ -1,4 +1,4 @@
-package core
+package bolo
 
 import (
 	"fmt"
@@ -10,9 +10,10 @@ import (
 	"path"
 	"time"
 
+	"github.com/go-bolo/bolo/acl"
+	"github.com/go-bolo/bolo/configuration"
+	"github.com/go-bolo/bolo/helpers"
 	"github.com/go-bolo/clock"
-	"github.com/go-bolo/core/configuration"
-	"github.com/go-bolo/core/helpers"
 	"github.com/go-playground/validator/v10"
 
 	"github.com/gookit/event"
@@ -83,8 +84,8 @@ type App interface {
 	GetTemplateCtx(c echo.Context, r *Route) string
 
 	// ACL:
-	GetAcl() Acl
-	SetAcl(acl Acl) error
+	GetAcl() acl.Acl
+	SetAcl(acl acl.Acl) error
 
 	// Start and close:
 	Bootstrap() error
@@ -110,7 +111,7 @@ func NewApp(opts *DefaultAppOptions) App {
 	}
 
 	app := &DefaultApp{
-		Acl:                NewAcl(&NewAclOpts{Logger: logger}),
+		Acl:                acl.NewAcl(&acl.NewAclOpts{Logger: logger}),
 		Clock:              clock.New(),
 		Options:            opts,
 		Plugins:            make(map[string]Plugin),
@@ -147,7 +148,7 @@ func NewApp(opts *DefaultAppOptions) App {
 }
 
 type DefaultApp struct {
-	Acl           Acl
+	Acl           acl.Acl
 	Clock         clock.Clock
 	Options       *DefaultAppOptions
 	Plugins       map[string]Plugin
@@ -168,7 +169,7 @@ type DefaultApp struct {
 
 	routerGroups map[string]*echo.Group
 
-	RolesList map[string]Role
+	RolesList map[string]acl.Role
 	// default theme for HTML responses
 	Theme string
 	// default layout for HTML responses
@@ -347,11 +348,11 @@ func (app *DefaultApp) GetTemplateCtx(c echo.Context, r *Route) string {
 	return "template-not-set"
 }
 
-func (app *DefaultApp) GetAcl() Acl {
+func (app *DefaultApp) GetAcl() acl.Acl {
 	return app.Acl
 }
 
-func (app *DefaultApp) SetAcl(acl Acl) error {
+func (app *DefaultApp) SetAcl(acl acl.Acl) error {
 	app.Acl = acl
 	return nil
 }

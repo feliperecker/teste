@@ -1,11 +1,11 @@
-package core
+package bolo
 
 import (
 	"bytes"
 	"html/template"
 
-	"github.com/go-bolo/core/helpers"
-	"github.com/go-bolo/core/pagination"
+	"github.com/go-bolo/bolo/helpers"
+	"github.com/go-bolo/bolo/pagination"
 	"github.com/labstack/echo/v4"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"

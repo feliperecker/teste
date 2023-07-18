@@ -1,17 +1,17 @@
-package core_test
+package bolo_test
 
 import (
 	"strconv"
 	"time"
 
-	"github.com/go-bolo/core"
+	bolo "github.com/go-bolo/bolo"
 )
 
 type BaseModel struct {
-	App core.App `gorm:"-" json:"-"`
+	App bolo.App `gorm:"-" json:"-"`
 }
 
-func (r *BaseModel) GetApp() core.App {
+func (r *BaseModel) GetApp() bolo.App {
 	return r.App
 }
 
@@ -40,7 +40,7 @@ func (r *URLModel) LoadTeaser() error {
 	return nil
 }
 
-func (r *URLModel) Save(app core.App) error {
+func (r *URLModel) Save(app bolo.App) error {
 	var err error
 	db := app.GetDB()
 
@@ -64,7 +64,7 @@ func (r *URLModel) Save(app core.App) error {
 	return nil
 }
 
-func FindOneURL(app core.App, id string) (*URLModel, error) {
+func FindOneURL(app bolo.App, id string) (*URLModel, error) {
 	db := app.GetDB()
 
 	record := URLModel{}

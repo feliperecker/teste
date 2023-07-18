@@ -1,4 +1,4 @@
-package core
+package bolo
 
 type BaseListReponse struct {
 	Meta BaseMetaResponse `json:"meta"`

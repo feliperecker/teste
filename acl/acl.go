@@ -1,4 +1,4 @@
-package core
+package acl
 
 import (
 	"encoding/json"

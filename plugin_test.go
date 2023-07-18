@@ -1,14 +1,14 @@
-package core_test
+package bolo_test
 
 import (
 	"testing"
 
-	"github.com/go-bolo/core"
+	bolo "github.com/go-bolo/bolo"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestPluginWork(t *testing.T) {
-	app := core.NewApp(&core.DefaultAppOptions{})
+	app := bolo.NewApp(&bolo.DefaultAppOptions{})
 
 	err := app.Bootstrap()
 	assert.Nil(t, err)

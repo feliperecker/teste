@@ -1,4 +1,4 @@
-package core
+package bolo
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-bolo/core/configuration"
+	"github.com/go-bolo/bolo/configuration"
 	"go.uber.org/zap"
 )
 
