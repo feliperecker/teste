@@ -49,61 +49,6 @@ func TestApp_Bootstrap(t *testing.T) {
 	}
 }
 
-func TestDefaultApp_AddPlugin(t *testing.T) {
-	type fields struct {
-		Plugins map[string]bolo.Plugin
-	}
-	type args struct {
-		pluginName string
-		p          bolo.Plugin
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := &bolo.DefaultApp{
-				Plugins: tt.fields.Plugins,
-			}
-			if err := app.AddPlugin(tt.args.pluginName, tt.args.p); (err != nil) != tt.wantErr {
-				t.Errorf("DefaultApp.AddPlugin() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestDefaultApp_HasPlugin(t *testing.T) {
-	type fields struct {
-		Plugins map[string]bolo.Plugin
-	}
-	type args struct {
-		pluginName string
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantHas bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			app := &bolo.DefaultApp{
-				Plugins: tt.fields.Plugins,
-			}
-			if gotHas := app.HasPlugin(tt.args.pluginName); gotHas != tt.wantHas {
-				t.Errorf("DefaultApp.HasPlugin() = %v, want %v", gotHas, tt.wantHas)
-			}
-		})
-	}
-}
-
 func TestRequestFlow(t *testing.T) {
 	type fields struct {
 		Plugins map[string]bolo.Plugin
@@ -170,7 +115,7 @@ func TestRequestFlow(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			app := GetTestApp()
-			err := app.AddPlugin("example", &URLShortenerPlugin{})
+			err := app.AddPlugin(&URLShortenerPlugin{Name: "example"})
 			assert.Nil(t, err)
 
 			err = app.Bootstrap()
@@ -216,7 +161,7 @@ func TestRequestFlow(t *testing.T) {
 
 func TestRequest_CRUD(t *testing.T) {
 	app := GetTestApp()
-	err := app.AddPlugin("example", &URLShortenerPlugin{})
+	err := app.AddPlugin(&URLShortenerPlugin{Name: "example"})
 	assert.Nil(t, err)
 	err = app.Bootstrap()
 	assert.Nil(t, err)

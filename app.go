@@ -34,7 +34,7 @@ type App interface {
 	GetClock() clock.Clock
 	SetClock(clock clock.Clock) error
 
-	AddPlugin(pluginName string, p Plugin) error
+	AddPlugin(p Plugin) error
 	GetPlugin(pluginName string) (p Plugin)
 	HasPlugin(pluginName string) (has bool)
 
@@ -148,7 +148,7 @@ func NewApp(opts *DefaultAppOptions) App {
 	app.router.HTTPErrorHandler = CustomHTTPErrorHandler
 	app.router.Validator = &helpers.CustomValidator{Validator: validator.New()}
 	// add core plugin, is set as plugin to be overriden if needed:
-	app.AddPlugin("core", NewCorePlugin(&CorePluginOpts{}))
+	app.AddPlugin(NewCorePlugin(&CorePluginOpts{}))
 
 	return app
 }
@@ -374,8 +374,8 @@ func (app *DefaultApp) SetSanitizer(sanitizer *bluemonday.Policy) error {
 	return nil
 }
 
-func (app *DefaultApp) AddPlugin(pluginName string, p Plugin) error {
-	app.Plugins[pluginName] = p
+func (app *DefaultApp) AddPlugin(p Plugin) error {
+	app.Plugins[p.GetName()] = p
 	return nil
 }
 

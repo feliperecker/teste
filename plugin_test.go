@@ -13,7 +13,7 @@ func TestPluginWork(t *testing.T) {
 	err := app.Bootstrap()
 	assert.Nil(t, err)
 
-	err = app.AddPlugin("example", &URLShortenerPlugin{})
+	err = app.AddPlugin(&URLShortenerPlugin{Name: "example"})
 	assert.Nil(t, err)
 
 }

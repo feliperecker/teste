@@ -16,6 +16,7 @@ import (
 
 // URLShortener is a plugin that shortens URLs.
 type URLShortenerPlugin struct {
+	Name       string
 	App        bolo.App `json:"-"`
 	Controller bolo.Controller
 }
@@ -41,11 +42,12 @@ func (p *URLShortenerPlugin) Init(app bolo.App) error {
 
 // GetName returns the name of the plugin.
 func (p *URLShortenerPlugin) GetName() string {
-	return "URLShortenerPlugin"
+	return p.Name
 }
 
 // SetName sets the name of the plugin.
 func (p *URLShortenerPlugin) SetName(name string) error {
+	p.Name = name
 	return nil
 }
 
