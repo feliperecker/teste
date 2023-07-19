@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/gookit/event v1.1.1
 	github.com/gosimple/slug v1.13.1
+	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.11.0
 	github.com/microcosm-cc/bluemonday v1.0.24
 	github.com/shopspring/decimal v1.3.1

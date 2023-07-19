@@ -15,6 +15,7 @@ import (
 	"github.com/go-bolo/bolo/helpers"
 	"github.com/go-bolo/clock"
 	"github.com/go-playground/validator/v10"
+	"github.com/microcosm-cc/bluemonday"
 
 	"github.com/gookit/event"
 	"github.com/labstack/echo/v4"
@@ -86,7 +87,9 @@ type App interface {
 	// ACL:
 	GetAcl() acl.Acl
 	SetAcl(acl acl.Acl) error
-
+	// HTML / Text sanitizer:
+	GetSanitizer() *bluemonday.Policy
+	SetSanitizer(policy *bluemonday.Policy) error
 	// Start and close:
 	Bootstrap() error
 	Close() error
@@ -129,6 +132,9 @@ func NewApp(opts *DefaultAppOptions) App {
 		Layout:             "layouts/default",
 		templateFunctions:  make(template.FuncMap),
 	}
+	// Default police:
+	app.Sanitizer = bluemonday.UGCPolicy()
+	app.Sanitizer.AllowDataURIImages()
 
 	app.router.GET("/health", HealthCheckHandler)
 	app.router.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -168,6 +174,8 @@ type DefaultApp struct {
 	ResponseFormatters map[string]responseFormatter `json:"-"`
 
 	routerGroups map[string]*echo.Group
+
+	Sanitizer *bluemonday.Policy
 
 	RolesList map[string]acl.Role
 	// default theme for HTML responses
@@ -354,6 +362,15 @@ func (app *DefaultApp) GetAcl() acl.Acl {
 
 func (app *DefaultApp) SetAcl(acl acl.Acl) error {
 	app.Acl = acl
+	return nil
+}
+
+func (app *DefaultApp) GetSanitizer() *bluemonday.Policy {
+	return app.Sanitizer
+}
+
+func (app *DefaultApp) SetSanitizer(sanitizer *bluemonday.Policy) error {
+	app.Sanitizer = sanitizer
 	return nil
 }
 
