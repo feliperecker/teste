@@ -14,15 +14,13 @@ import (
 func TestMain(m *testing.M) {
 	r := approvals.UseReporter(reporters.NewVSCodeReporter())
 	defer r.Close()
-	approvals.UseFolder("_testdata")
+	approvals.UseFolder("testdata/approvals")
 
 	os.Exit(m.Run())
-
-	m.Run()
 }
 
 func GetTestApp() bolo.App {
-	os.Setenv("TEMPLATE_FOLDER", "./_mocks/themes")
+	os.Setenv("TEMPLATE_FOLDER", "./testdata/mocks/themes")
 
 	app := bolo.NewApp(&bolo.DefaultAppOptions{})
 	app.SetTheme("site")

@@ -295,7 +295,7 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusNotFound,
 		},
 		{
-			name: "JSON: findOne should return 404 with invalid id",
+			name: "JSON findOne should return 404 with invalid id",
 			args: args{
 				method: http.MethodGet,
 				url:    "/urls/1111111111",
@@ -304,7 +304,7 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusNotFound,
 		},
 		{
-			name: "JSON: create should create a new record",
+			name: "JSON create should create a new record",
 			args: args{
 				method: http.MethodPost,
 				url:    "/api/v1/urls",
@@ -314,7 +314,7 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 		},
 		{
-			name: "JSON: get count",
+			name: "JSON get count",
 			args: args{
 				method: http.MethodGet,
 				url:    "/api/v1/urls-count",
@@ -323,7 +323,7 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "JSON: should run update action",
+			name: "JSON should run update action",
 			args: args{
 				method: http.MethodPost,
 				url:    "/api/v1/urls/1",
@@ -332,7 +332,7 @@ func TestRequest_CRUD(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name: "JSON: should run delete action",
+			name: "JSON should run delete action",
 			args: args{
 				method: http.MethodDelete,
 				url:    "/api/v1/urls/1",
