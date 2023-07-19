@@ -49,6 +49,8 @@ type App interface {
 	SetDB(dbName string, db *gorm.DB) error
 	SetModel(name string, model Model) error
 	GetModel(name string) Model
+	// Run gorm migrate for each registered model
+	SyncDB() error
 
 	// Logger:
 	GetLogger() *zap.Logger
@@ -410,10 +412,12 @@ func (app *DefaultApp) SetDB(dbName string, db *gorm.DB) error {
 	return nil
 }
 
-func (app *DefaultApp) Migrate() error {
-	err, _ := app.Events.Fire("migrate", event.M{"app": app})
-	if err != nil {
-		return fmt.Errorf("app.Migrate migrate error: %w", err)
+func (app *DefaultApp) SyncDB() error {
+	for _, m := range app.Models {
+		err := app.GetDB().AutoMigrate(m)
+		if err != nil {
+			return fmt.Errorf("app.SyncDB: %w", err)
+		}
 	}
 
 	return nil

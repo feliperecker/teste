@@ -165,9 +165,8 @@ func TestRequest_CRUD(t *testing.T) {
 	assert.Nil(t, err)
 	err = app.Bootstrap()
 	assert.Nil(t, err)
-	err = app.GetDB().AutoMigrate(
-		&URLModel{},
-	)
+	err = app.SyncDB()
+	assert.Nil(t, err)
 
 	app.GetAcl().SetDisabled(true)
 
