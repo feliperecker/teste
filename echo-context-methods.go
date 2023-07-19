@@ -2,6 +2,8 @@ package bolo
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 
 	"github.com/go-bolo/bolo/pagination"
 	"github.com/go-bolo/query_parser_to_db"
@@ -13,6 +15,14 @@ import (
 
 func GetAppCtx(c echo.Context) App {
 	return c.Get("app").(App)
+}
+
+func NewContext(app App) echo.Context {
+	req, _ := http.NewRequest(http.MethodGet, "/", nil)
+	res := httptest.NewRecorder()
+	c := app.GetRouter().NewContext(req, res)
+
+	return c
 }
 
 // SetDefaultValuesCtx - Ran at request start as a middleware to set all core values in echo context.

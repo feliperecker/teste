@@ -7,14 +7,6 @@ import (
 	bolo "github.com/go-bolo/bolo"
 )
 
-type BaseModel struct {
-	App bolo.App `gorm:"-" json:"-"`
-}
-
-func (r *BaseModel) GetApp() bolo.App {
-	return r.App
-}
-
 type URLModel struct {
 	ID        uint64    `gorm:"primary_key;column:id;" json:"id" filter:"param:id;type:number"`
 	Title     string    `gorm:"column:title;not null;" json:"title" filter:"param:title;type:string"`
