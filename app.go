@@ -84,7 +84,7 @@ type App interface {
 	SetTemplateFunction(name string, f interface{})
 	RenderTemplate(wr io.Writer, theme string, name string, data interface{}) error
 
-	GetTemplateCtx(c echo.Context, r *Route) string
+	GetTemplate(c echo.Context, r *Route) string
 
 	// ACL:
 	GetAcl() acl.Acl
@@ -115,6 +115,10 @@ func NewApp(opts *DefaultAppOptions) App {
 		opts.ContentTypes = []string{"text/html", "application/json"}
 	}
 
+	if opts.DefaultContentType == "" {
+		opts.DefaultContentType = "application/json"
+	}
+
 	app := &DefaultApp{
 		Acl:                acl.NewAcl(&acl.NewAclOpts{Logger: logger}),
 		Clock:              clock.New(),
@@ -141,7 +145,7 @@ func NewApp(opts *DefaultAppOptions) App {
 	app.router.GET("/health", HealthCheckHandler)
 	app.router.Pre(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			SetDefaultValuesCtx(c, app)
+			SetDefaultValues(c, app)
 			return next(c)
 		}
 	})
@@ -179,7 +183,6 @@ type DefaultApp struct {
 
 	Sanitizer *bluemonday.Policy
 
-	RolesList map[string]acl.Role
 	// default theme for HTML responses
 	Theme string
 	// default layout for HTML responses
@@ -238,7 +241,7 @@ func (app *DefaultApp) BindRoute(routeName string, r *Route) echo.HandlerFunc {
 			return err
 		}
 
-		return app.GetResponseFormatter(GetAcceptCtx(c))(app, c, r, res)
+		return app.GetResponseFormatter(GetAccept(c))(app, c, r, res)
 	}
 }
 
@@ -345,7 +348,7 @@ func (app *DefaultApp) RenderTemplate(wr io.Writer, theme string, name string, d
 	return app.GetTemplates().ExecuteTemplate(wr, path.Join(theme, name), data)
 }
 
-func (app *DefaultApp) GetTemplateCtx(c echo.Context, r *Route) string {
+func (app *DefaultApp) GetTemplate(c echo.Context, r *Route) string {
 	templateCtx := c.Get("template")
 	if templateCtx != nil {
 		return templateCtx.(string)

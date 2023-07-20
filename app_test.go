@@ -132,7 +132,7 @@ func TestRequestFlow(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.Set("app", app)
 
-			bolo.SetAcceptCtx(c, tt.args.accept)
+			bolo.SetAccept(c, tt.args.accept)
 
 			rHandler := app.BindRoute("example_get", &bolo.Route{
 				Method:   http.MethodGet,
@@ -291,6 +291,7 @@ func TestRequest_CRUD(t *testing.T) {
 
 			req := httptest.NewRequest(tt.args.method, tt.args.url, tt.args.data)
 			req.Header.Set(echo.HeaderAccept, tt.args.accept)
+			// Body content type:
 			req.Header.Set(echo.HeaderContentType, "application/json")
 
 			rec := httptest.NewRecorder() // run the request:

@@ -15,7 +15,7 @@ func DefaultJSONFormatter(app App, c echo.Context, r *Route, resp Response) erro
 }
 
 func DefaultHTMLFormatter(app App, c echo.Context, r *Route, resp Response) error {
-	template := app.GetTemplateCtx(c, r)
+	template := app.GetTemplate(c, r)
 
 	return MinifiAndRender(resp.GetStatusCode(), template, &TemplateCTX{
 		Ctx:  c,

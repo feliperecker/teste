@@ -36,7 +36,7 @@ func AcceptResolverMiddleware(app App) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			acceptType := NegotiateContentType(c.Request(), app.GetContentTypes(), app.GetDefaultContentType())
-			SetAcceptCtx(c, acceptType)
+			SetAccept(c, acceptType)
 
 			return next(c)
 		}

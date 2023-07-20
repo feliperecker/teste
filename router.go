@@ -39,6 +39,7 @@ type Route struct {
 	AcceptOnly string
 	Template   string
 	Layout     string
+	Theme      string
 	Model      interface{}
 }
 

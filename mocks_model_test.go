@@ -28,7 +28,7 @@ func (r *URLModel) LoadData() error {
 	return nil
 }
 
-func (r *URLModel) LoadTeaser() error {
+func (r *URLModel) LoadTeaserData() error {
 	return nil
 }
 

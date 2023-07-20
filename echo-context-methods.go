@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func GetAppCtx(c echo.Context) App {
+func GetApp(c echo.Context) App {
 	return c.Get("app").(App)
 }
 
@@ -26,7 +26,7 @@ func NewContext(app App) echo.Context {
 }
 
 // SetDefaultValuesCtx - Ran at request start as a middleware to set all core values in echo context.
-func SetDefaultValuesCtx(c echo.Context, app App) error {
+func SetDefaultValues(c echo.Context, app App) error {
 	cfg := app.GetConfiguration()
 	port := cfg.GetF("PORT", "8080")
 	protocol := cfg.GetF("PROTOCOL", "http")
@@ -37,12 +37,12 @@ func SetDefaultValuesCtx(c echo.Context, app App) error {
 	c.Set("theme", cfg.GetF("THEME", app.GetTheme()))
 	c.Set("base_url", cfg.GetF("BASE_URL", protocol+"://"+domain+":"+port))
 
-	SetPagerCtx(c, pagination.NewPager())
-	SetQueryParserCtx(c, query_parser_to_db.NewQuery(50))
-	SetAcceptCtx(c, app.GetDefaultContentType())
-	SetAuthenticatedUserCtx(c, nil)
-	SetRolesCtx(c, []string{})
-	SetMetadataCtx(c, NewMetadata())
+	SetPager(c, pagination.NewPager())
+	SetQueryParser(c, query_parser_to_db.NewQuery(50))
+	SetAccept(c, app.GetDefaultContentType())
+	SetAuthenticatedUser(c, nil)
+	SetRoles(c, []string{})
+	SetMetadata(c, NewMetadata())
 
 	err, _ := app.GetEvents().Fire("set-default-request-context-values", event.M{"app": app, "context": c})
 	if err != nil {
@@ -53,13 +53,13 @@ func SetDefaultValuesCtx(c echo.Context, app App) error {
 }
 
 // GetRouteCtx - Returns the current request related route configuration
-func GetRouteCtx(c echo.Context) *Route {
+func GetRoute(c echo.Context) *Route {
 	return c.Get("route").(*Route)
 }
 
 // GetAcceptCtx - Returns the content type for the response.
 // Accept is used to determine the response format or the default App configuration
-func GetAcceptCtx(c echo.Context) string {
+func GetAccept(c echo.Context) string {
 	accept := c.Get("accept")
 	if accept == nil {
 		return c.Get("app").(App).GetDefaultContentType()
@@ -69,11 +69,11 @@ func GetAcceptCtx(c echo.Context) string {
 }
 
 // SetAcceptCtx - Accept used to determine the response format.
-func SetAcceptCtx(c echo.Context, accept string) {
+func SetAccept(c echo.Context, accept string) {
 	c.Set("accept", accept)
 }
 
-func GetAuthenticatedUserCtx(c echo.Context) User {
+func GetAuthenticatedUser(c echo.Context) User {
 	user := c.Get("user")
 	if user == nil {
 		return nil
@@ -82,13 +82,13 @@ func GetAuthenticatedUserCtx(c echo.Context) User {
 	return user.(User)
 }
 
-func SetAuthenticatedUserCtx(c echo.Context, user User) error {
+func SetAuthenticatedUser(c echo.Context, user User) error {
 	c.Set("user", user)
 	return nil
 }
 
 // GetRolesCtx - Returns the current request related route configuration
-func GetRolesCtx(c echo.Context) []string {
+func GetRoles(c echo.Context) []string {
 	roles := c.Get("roles")
 	if roles == nil {
 		return []string{}
@@ -97,16 +97,30 @@ func GetRolesCtx(c echo.Context) []string {
 	return roles.([]string)
 }
 
-func SetRolesCtx(c echo.Context, roles []string) error {
+func SetRoles(c echo.Context, roles []string) error {
 	c.Set("roles", roles)
 	return nil
 }
 
-func IsAuthenticatedCtx(c echo.Context) bool {
-	return GetAuthenticatedUserCtx(c) != nil
+// AddRoleCtx - Add a role to the current request context that is usualy used with access checks
+func AddRole(c echo.Context, role string) error {
+	roles := GetRoles(c)
+	roles = append(roles, role)
+	c.Set("roles", roles)
+	return nil
 }
 
-func GetQueryParserCtx(c echo.Context) query_parser_to_db.QueryInterface {
+func IsAuthenticated(c echo.Context) bool {
+	return GetAuthenticatedUser(c) != nil
+}
+
+func Can(c echo.Context, permission string) bool {
+	app := GetApp(c)
+	roles := GetRoles(c)
+	return app.GetAcl().Can(permission, roles)
+}
+
+func GetQueryParser(c echo.Context) query_parser_to_db.QueryInterface {
 	queryParser := c.Get("query_parser")
 	if queryParser == nil {
 		return nil
@@ -115,12 +129,12 @@ func GetQueryParserCtx(c echo.Context) query_parser_to_db.QueryInterface {
 	return queryParser.(query_parser_to_db.QueryInterface)
 }
 
-func SetQueryParserCtx(c echo.Context, queryParser query_parser_to_db.QueryInterface) error {
+func SetQueryParser(c echo.Context, queryParser query_parser_to_db.QueryInterface) error {
 	c.Set("query_parser", queryParser)
 	return nil
 }
 
-func GetMetadataCtx(c echo.Context) Metadata {
+func GetMetadata(c echo.Context) Metadata {
 	metadata := c.Get("metadata")
 	if metadata == nil {
 		return NewMetadata()
@@ -129,21 +143,54 @@ func GetMetadataCtx(c echo.Context) Metadata {
 	return metadata.(Metadata)
 }
 
-func SetMetadataCtx(c echo.Context, metadata Metadata) error {
+func SetMetadata(c echo.Context, metadata Metadata) error {
 	c.Set("metadata", metadata)
 	return nil
 }
 
-func GetLoggerCtx(c echo.Context) *zap.Logger {
+func GetLogger(c echo.Context) *zap.Logger {
 	return c.Get("logger").(*zap.Logger)
 }
 
-func GetPagerCtx(c echo.Context) *pagination.Pager {
+func GetPager(c echo.Context) *pagination.Pager {
 	return c.Get("pager").(*pagination.Pager)
 }
 
 // SetPagerCtx - Set the pagination pager object in the echo context
-func SetPagerCtx(c echo.Context, pager *pagination.Pager) error {
+func SetPager(c echo.Context, pager *pagination.Pager) error {
 	c.Set("pager", pager)
+	return nil
+}
+
+// GetLimitCtx - Get the limit for the response list for list routes. Ex query
+func GetLimit(c echo.Context) int {
+	p := GetPager(c)
+	return int(p.Limit)
+}
+
+// GetOffsetCtx - Calculate and returns the route request query offset
+func GetOffset(c echo.Context) int {
+	pager := GetPager(c)
+	page := int(pager.Page)
+
+	if page < 2 {
+		return 0
+	}
+
+	limit := int(pager.Limit)
+	return limit * (page - 1)
+}
+
+func GetBaseURL(c echo.Context) string {
+	baseURL := c.Get("base_url")
+	if baseURL == nil {
+		return ""
+	}
+
+	return baseURL.(string)
+}
+
+func SetBaseURL(c echo.Context, baseURL string) error {
+	c.Set("base_url", baseURL)
 	return nil
 }

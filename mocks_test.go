@@ -133,11 +133,11 @@ func (ctl *URLController) Find(c echo.Context) (bolo.Response, error) {
 func (ctl *URLController) Create(c echo.Context) (bolo.Response, error) {
 	var err error
 
-	app := bolo.GetAppCtx(c)
+	app := bolo.GetApp(c)
 	acl := app.GetAcl()
-	route := bolo.GetRouteCtx(c)
+	route := bolo.GetRoute(c)
 
-	can := acl.Can(route.Permission, bolo.GetRolesCtx(c))
+	can := acl.Can(route.Permission, bolo.GetRoles(c))
 	if !can {
 		return nil, &bolo.HTTPError{
 			Code:    http.StatusForbidden,
@@ -167,8 +167,8 @@ func (ctl *URLController) Create(c echo.Context) (bolo.Response, error) {
 	record := body.URL
 	record.ID = 0
 
-	if bolo.IsAuthenticatedCtx(c) {
-		creatorID := bolo.GetAuthenticatedUserCtx(c).GetID()
+	if bolo.IsAuthenticated(c) {
+		creatorID := bolo.GetAuthenticatedUser(c).GetID()
 		record.CreatorID = &creatorID
 	}
 
@@ -201,7 +201,7 @@ func (ctl *URLController) Create(c echo.Context) (bolo.Response, error) {
 }
 
 func (ctl *URLController) FindOne(c echo.Context) (bolo.Response, error) {
-	app := bolo.GetAppCtx(c)
+	app := bolo.GetApp(c)
 	id := c.Param("id")
 
 	record, err := FindOneURL(app, id)

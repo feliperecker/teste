@@ -11,12 +11,22 @@ import (
 	"gorm.io/gorm"
 )
 
+func NewHTTPError(code int, message interface{}, internal error) error {
+	return &HTTPError{
+		Code:     code,
+		Message:  message,
+		Internal: internal,
+	}
+}
+
 type HTTPErrorInterface interface {
 	Error() string
 	GetCode() int
 	SetCode(code int) error
 	GetMessage() interface{}
 	SetMessage(message interface{}) error
+	GetInternal() error
+	SetInternal(internal error) error
 }
 
 // HTTPError implements HTTP Error interface, default error object
@@ -73,8 +83,8 @@ type ValidationFieldError struct {
 }
 
 func CustomHTTPErrorHandler(err error, c echo.Context) {
-	l := GetLoggerCtx(c)
-	accept := GetAcceptCtx(c)
+	l := GetLogger(c)
+	accept := GetAccept(c)
 
 	l.Debug("CustomHTTPErrorHandler running", zap.Any("err", err), zap.String("accept", accept))
 
@@ -114,15 +124,15 @@ func CustomHTTPErrorHandler(err error, c echo.Context) {
 	case 500:
 		internalServerErrorHandler(err, c)
 	default:
-		l.Warn("customHTTPErrorHandler unknown error status code", zap.Error(err), zap.Int("statusCode", code), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUserCtx(c)), zap.Any("roles", GetRolesCtx(c)))
+		l.Warn("customHTTPErrorHandler unknown error status code", zap.Error(err), zap.Int("statusCode", code), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUser(c)), zap.Any("roles", GetRoles(c)))
 		c.JSON(http.StatusInternalServerError, &HTTPError{Code: 500, Message: "Unknown Error"})
 	}
 }
 
 func forbiddenErrorHandler(err error, c echo.Context) error {
-	accept := GetAcceptCtx(c)
-	metadata := GetMetadataCtx(c)
-	l := GetLoggerCtx(c)
+	accept := GetAccept(c)
+	metadata := GetMetadata(c)
+	l := GetLogger(c)
 
 	l.Debug("forbiddenErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -144,11 +154,11 @@ func forbiddenErrorHandler(err error, c echo.Context) error {
 }
 
 func unAuthorizedErrorHandler(err error, c echo.Context) error {
-	l := GetLoggerCtx(c)
-	accept := GetAcceptCtx(c)
-	metadata := GetMetadataCtx(c)
+	l := GetLogger(c)
+	accept := GetAccept(c)
+	metadata := GetMetadata(c)
 
-	l.Info("unAuthorizedErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUserCtx(c)), zap.Any("roles", GetRolesCtx(c)))
+	l.Info("unAuthorizedErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method), zap.Any("AuthenticatedUser", GetAuthenticatedUser(c)), zap.Any("roles", GetRoles(c)))
 
 	switch accept {
 	case "text/html":
@@ -168,9 +178,9 @@ func unAuthorizedErrorHandler(err error, c echo.Context) error {
 }
 
 func notFoundErrorHandler(err error, c echo.Context) error {
-	accept := GetAcceptCtx(c)
-	metadata := GetMetadataCtx(c)
-	l := GetLoggerCtx(c)
+	accept := GetAccept(c)
+	metadata := GetMetadata(c)
+	l := GetLogger(c)
 
 	l.Debug("notFoundErrorHandler running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -191,9 +201,9 @@ func notFoundErrorHandler(err error, c echo.Context) error {
 }
 
 func validationError(ve validator.ValidationErrors, err error, c echo.Context) error {
-	accept := GetAcceptCtx(c)
-	l := GetLoggerCtx(c)
-	metadata := GetMetadataCtx(c)
+	accept := GetAccept(c)
+	l := GetLogger(c)
+	metadata := GetMetadata(c)
 
 	l.Debug("validationError running", zap.Error(err), zap.String("accept", accept), zap.String("path", c.Path()), zap.String("method", c.Request().Method))
 
@@ -227,9 +237,9 @@ func validationError(ve validator.ValidationErrors, err error, c echo.Context) e
 }
 
 func internalServerErrorHandler(err error, c echo.Context) error {
-	accept := GetAcceptCtx(c)
-	l := GetLoggerCtx(c)
-	metadata := GetMetadataCtx(c)
+	accept := GetAccept(c)
+	l := GetLogger(c)
+	metadata := GetMetadata(c)
 
 	code := http.StatusInternalServerError
 	if he, ok := err.(*HTTPError); ok {

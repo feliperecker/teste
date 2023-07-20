@@ -228,7 +228,13 @@ func GetTheme(c echo.Context) string {
 		return t.(string)
 	}
 
-	return "site"
+	route := GetRoute(c)
+	if route.Theme != "" {
+		return route.Theme
+	}
+
+	app := GetApp(c)
+	return app.GetTheme()
 }
 
 func SetTheme(c echo.Context, theme string) {
